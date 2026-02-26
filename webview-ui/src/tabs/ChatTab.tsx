@@ -8,6 +8,60 @@ interface Message {
     timestamp: string;
 }
 
+/**
+ * Lightweight markdown renderer for AI responses.
+ * Handles: code blocks, inline code, bold, italic, headings, lists, links.
+ */
+function renderMarkdown(text: string): string {
+    let html = text;
+
+    // Escape HTML entities first (but preserve our own tags later)
+    html = html
+        .replace(/&/g, "&amp;")
+        .replace(/</g, "&lt;")
+        .replace(/>/g, "&gt;");
+
+    // Code blocks: ```lang\ncode\n```
+    html = html.replace(
+        /```(\w*)\n([\s\S]*?)```/g,
+        (_m, lang, code) =>
+            `<pre class="md-codeblock"><code class="lang-${lang || "text"}">${code.trim()}</code></pre>`
+    );
+
+    // Inline code: `code`
+    html = html.replace(/`([^`]+)`/g, '<code class="md-inline-code">$1</code>');
+
+    // Headings: ### heading
+    html = html.replace(/^### (.+)$/gm, '<h4 class="md-heading">$1</h4>');
+    html = html.replace(/^## (.+)$/gm, '<h3 class="md-heading">$1</h3>');
+    html = html.replace(/^# (.+)$/gm, '<h2 class="md-heading">$1</h2>');
+
+    // Bold: **text**
+    html = html.replace(/\*\*(.+?)\*\*/g, "<strong>$1</strong>");
+
+    // Italic: *text*
+    html = html.replace(/(?<!\*)\*(?!\*)(.+?)(?<!\*)\*(?!\*)/g, "<em>$1</em>");
+
+    // Links: [text](url)
+    html = html.replace(
+        /\[([^\]]+)\]\(([^)]+)\)/g,
+        '<a href="$2" class="md-link" target="_blank" rel="noopener">$1</a>'
+    );
+
+    // Unordered lists: - item
+    html = html.replace(/^- (.+)$/gm, '<li class="md-li">$1</li>');
+    html = html.replace(/((?:<li class="md-li">.*<\/li>\n?)+)/g, '<ul class="md-list">$1</ul>');
+
+    // Ordered lists: 1. item
+    html = html.replace(/^\d+\. (.+)$/gm, '<li class="md-li">$1</li>');
+
+    // Line breaks (double newline = paragraph)
+    html = html.replace(/\n{2,}/g, '<br/><br/>');
+    html = html.replace(/\n/g, '<br/>');
+
+    return html;
+}
+
 export default function ChatTab() {
     const { postMessage } = useVSCode();
     const [messages, setMessages] = useState<Message[]>([]);
@@ -49,6 +103,10 @@ export default function ChatTab() {
                         setStreamingContent("");
                         setSending(false);
                     }
+                    break;
+                case "chatCleared":
+                    setMessages([]);
+                    setStreamingContent("");
                     break;
                 case "error":
                     setStreamingContent("");
@@ -130,13 +188,23 @@ export default function ChatTab() {
 
                 {messages.map((msg) => (
                     <div key={msg.id} className={`chat-message ${msg.role}`}>
-                        {msg.content}
+                        {msg.role === "assistant" ? (
+                            <div
+                                className="md-content"
+                                dangerouslySetInnerHTML={{ __html: renderMarkdown(msg.content) }}
+                            />
+                        ) : (
+                            msg.content
+                        )}
                     </div>
                 ))}
 
                 {streamingContent && (
                     <div className="chat-message assistant">
-                        {streamingContent}
+                        <div
+                            className="md-content"
+                            dangerouslySetInnerHTML={{ __html: renderMarkdown(streamingContent) }}
+                        />
                         <span className="spinner" style={{ marginLeft: 4, verticalAlign: "middle" }} />
                     </div>
                 )}

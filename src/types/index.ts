@@ -134,10 +134,13 @@ export type WebviewMessageType =
   | "getAuditResults"
   | "sendChatMessage"
   | "getChatHistory"
+  | "clearChatHistory"
   | "getSettings"
   | "saveSettings"
   | "suppressIssue"
   | "getTechStack"
+  | "enableTeamMode"
+  | "disableTeamMode"
   | "profileSaved"
   | "scoresUpdated"
   | "scanComplete"
@@ -147,6 +150,8 @@ export type WebviewMessageType =
   | "auditComplete"
   | "chatResponse"
   | "chatStreamChunk"
+  | "chatCleared"
+  | "teamModeStatus"
   | "error"
   | "settingsLoaded"
   | "profileLoaded"
@@ -166,4 +171,5 @@ export interface DraftAISettings {
   enableCodeHealth: boolean;
   enableCompetitorInsights: boolean;
   enableUIAudit: boolean;
+  enableTeamMode: boolean;
 }

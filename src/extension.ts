@@ -9,6 +9,7 @@ import { ScannerService } from "./services/scanner";
 import { OSVService } from "./services/osv";
 import { CompetitorResearchService } from "./services/competitorResearch";
 import { UIAuditorService } from "./services/uiAuditor";
+import { buildChatSystemPrompt } from "./prompts/chat";
 import type { WebviewMessage, ChatMessage } from "./types";
 
 let scanTimer: NodeJS.Timeout | undefined;
@@ -160,6 +161,20 @@ export function activate(context: vscode.ExtensionContext) {
               type: "scoresUpdated",
               payload: currentScores,
             });
+
+            // VS Code notification
+            const critCount = scanResult.issues.filter(
+              (i) => i.severity === "critical" && !i.suppressed
+            ).length;
+            if (critCount > 0) {
+              vscode.window.showWarningMessage(
+                `Draft AI: Scan found ${critCount} critical issue${critCount > 1 ? "s" : ""}. Health score: ${scanResult.healthScore}/100`
+              );
+            } else {
+              vscode.window.showInformationMessage(
+                `Draft AI: Scan complete! Health score: ${scanResult.healthScore}/100`
+              );
+            }
           } catch (err: any) {
             panelProvider.postMessage({
               type: "scanProgress",
@@ -230,6 +245,10 @@ export function activate(context: vscode.ExtensionContext) {
               type: "scoresUpdated",
               payload: scores,
             });
+
+            vscode.window.showInformationMessage(
+              `Draft AI: Competitor research complete! Score: ${result.competitiveScore}/100`
+            );
           } catch (err: any) {
             panelProvider.postMessage({
               type: "researchProgress",
@@ -295,6 +314,11 @@ export function activate(context: vscode.ExtensionContext) {
               type: "scoresUpdated",
               payload: auditScores,
             });
+
+            const avgScore = auditScores.uiConsistency;
+            vscode.window.showInformationMessage(
+              `Draft AI: UI audit complete! Average score: ${avgScore}/100`
+            );
           } catch (err: any) {
             panelProvider.postMessage({
               type: "error",
@@ -344,17 +368,15 @@ export function activate(context: vscode.ExtensionContext) {
           await storage.addChatMessage(userChatMsg);
 
           // Build context for the AI
-          const profile = storage.getProfile();
-          const latestScanResult = storage.getLatestScan();
-          const competitorData = storage.getCompetitorResults();
-          const auditData = storage.getAuditResults();
-
-          const systemPrompt = buildChatSystemPrompt(
-            profile,
-            latestScanResult,
-            competitorData,
-            auditData
-          );
+          const chatTechStack = await stackDetector.detect();
+          const systemPrompt = buildChatSystemPrompt({
+            profile: storage.getProfile(),
+            scan: storage.getLatestScan(),
+            competitor: storage.getCompetitorResults(),
+            audit: storage.getAuditResults(),
+            techStack: chatTechStack,
+            activeTab: userMsg.context,
+          });
 
           // Get recent chat history for context
           const chatHistory = storage.getChatHistory().slice(-10);
@@ -404,6 +426,33 @@ export function activate(context: vscode.ExtensionContext) {
           panelProvider.postMessage({
             type: "chatResponse",
             payload: history,
+          });
+          break;
+        }
+
+        case "clearChatHistory": {
+          await storage.clearChatHistory();
+          panelProvider.postMessage({ type: "chatCleared" });
+          break;
+        }
+
+        // ── Team Mode ──
+        case "enableTeamMode": {
+          await storage.exportTeamConfig(workspaceRoot);
+          panelProvider.postMessage({
+            type: "teamModeStatus",
+            payload: { enabled: true },
+          });
+          vscode.window.showInformationMessage(
+            "Draft AI: Team Mode enabled! .draftai.json created in your project root."
+          );
+          break;
+        }
+
+        case "disableTeamMode": {
+          panelProvider.postMessage({
+            type: "teamModeStatus",
+            payload: { enabled: false },
           });
           break;
         }
@@ -475,59 +524,3 @@ export function deactivate() {
   console.log("Draft AI deactivated.");
 }
 
-/**
- * Build a system prompt that gives the AI full project context.
- */
-function buildChatSystemPrompt(
-  profile: any,
-  scan: any,
-  competitor: any,
-  audit: any
-): string {
-  let prompt = `You are Draft AI — a senior developer, product strategist, and security auditor built into the developer's code editor. You have deep knowledge of their project and codebase.
-
-Answer questions directly and specifically. Reference the project's actual code, tech stack, features, and goals. Don't give generic advice — every answer should be tailored to THIS project.
-
-Be concise but thorough. Use code examples when helpful. Format responses in Markdown.`;
-
-  if (profile) {
-    prompt += `\n\n## Project Profile
-- **App**: ${profile.appDescription}
-- **Target Users**: ${profile.targetUsers}
-- **Current Features**: ${profile.currentFeatures}
-- **Planned Features**: ${profile.plannedFeatures}
-- **Competitors**: ${profile.competitors?.join(", ") ?? "None listed"}
-- **Design Intent**: ${profile.designIntent}`;
-  }
-
-  if (scan) {
-    const criticalCount = scan.issues?.filter(
-      (i: any) => i.severity === "critical" && !i.suppressed
-    ).length ?? 0;
-    const warningCount = scan.issues?.filter(
-      (i: any) => i.severity === "warning" && !i.suppressed
-    ).length ?? 0;
-    prompt += `\n\n## Latest Code Health Scan
-- **Health Score**: ${scan.healthScore}/100
-- **Critical Issues**: ${criticalCount}
-- **Warnings**: ${warningCount}
-- **Files Scanned**: ${scan.filesScanned}
-- **Last Scan**: ${scan.timestamp}`;
-  }
-
-  if (competitor) {
-    prompt += `\n\n## Latest Competitor Research
-- **Competitive Score**: ${competitor.competitiveScore}/100
-- **Missing Features**: ${competitor.gapAnalysis?.missingFeatures?.join(", ") ?? "None"}
-- **Opportunities**: ${competitor.gapAnalysis?.opportunities?.join(", ") ?? "None"}`;
-  }
-
-  if (audit) {
-    prompt += `\n\n## Latest UI Audit
-- **Design Consistency**: ${audit.designConsistencyScore}/100
-- **Accessibility**: ${audit.accessibilityScore}/100
-- **Structure**: ${audit.structureScore}/100`;
-  }
-
-  return prompt;
-}

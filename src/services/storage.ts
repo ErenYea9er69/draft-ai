@@ -1,4 +1,6 @@
 import * as vscode from "vscode";
+import * as fs from "fs";
+import * as path from "path";
 import type {
   ProjectProfile,
   ScanResult,
@@ -138,11 +140,62 @@ export class StorageService {
       enableCodeHealth: config.get("enableCodeHealth", true),
       enableCompetitorInsights: config.get("enableCompetitorInsights", true),
       enableUIAudit: config.get("enableUIAudit", true),
+      enableTeamMode: config.get("enableTeamMode", false),
     };
   }
 
   async saveSetting(key: string, value: any): Promise<void> {
     const config = vscode.workspace.getConfiguration("draftai");
     await config.update(key, value, vscode.ConfigurationTarget.Global);
+  }
+
+  // ─── Team Mode ───
+
+  async exportTeamConfig(workspaceRoot: string): Promise<void> {
+    if (!workspaceRoot) return;
+
+    const profile = this.getProfile();
+    const suppressed = this.getSuppressedIssues();
+    const scores = this.getScores();
+
+    const teamConfig = {
+      $schema: "https://draftai.dev/schema/v1",
+      profile: profile ?? null,
+      suppressedIssues: suppressed,
+      scores,
+      exportedAt: new Date().toISOString(),
+    };
+
+    const filePath = path.join(workspaceRoot, ".draftai.json");
+    fs.writeFileSync(filePath, JSON.stringify(teamConfig, null, 2), "utf-8");
+  }
+
+  async importTeamConfig(workspaceRoot: string): Promise<boolean> {
+    if (!workspaceRoot) return false;
+
+    const filePath = path.join(workspaceRoot, ".draftai.json");
+    if (!fs.existsSync(filePath)) return false;
+
+    try {
+      const content = fs.readFileSync(filePath, "utf-8");
+      const config = JSON.parse(content);
+
+      if (config.profile) {
+        await this.saveProfile(config.profile);
+      }
+      if (Array.isArray(config.suppressedIssues)) {
+        for (const id of config.suppressedIssues) {
+          await this.suppressIssue(id);
+        }
+      }
+      return true;
+    } catch {
+      return false;
+    }
+  }
+
+  teamConfigExists(workspaceRoot: string): boolean {
+    if (!workspaceRoot) return false;
+    return fs.existsSync(path.join(workspaceRoot, ".draftai.json"));
   }
 }

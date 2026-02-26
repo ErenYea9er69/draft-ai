@@ -15,14 +15,23 @@ export default function SettingsTab({ onEditProfile }: SettingsTabProps) {
         enableCodeHealth: true,
         enableCompetitorInsights: true,
         enableUIAudit: true,
+        enableTeamMode: false,
     });
     const [saved, setSaved] = useState(false);
+    const [chatCleared, setChatCleared] = useState(false);
 
     useEffect(() => {
         const handleMessage = (event: MessageEvent) => {
             const msg = event.data;
             if (msg.type === "settingsLoaded" && msg.payload) {
                 setSettings(msg.payload);
+            }
+            if (msg.type === "chatCleared") {
+                setChatCleared(true);
+                setTimeout(() => setChatCleared(false), 2000);
+            }
+            if (msg.type === "teamModeStatus" && msg.payload) {
+                setSettings((prev) => ({ ...prev, enableTeamMode: msg.payload.enabled }));
             }
         };
         window.addEventListener("message", handleMessage);
@@ -38,6 +47,20 @@ export default function SettingsTab({ onEditProfile }: SettingsTabProps) {
 
     const updateSetting = (key: string, value: any) => {
         setSettings((prev) => ({ ...prev, [key]: value }));
+    };
+
+    const handleTeamModeToggle = () => {
+        const newVal = !settings.enableTeamMode;
+        if (newVal) {
+            postMessage("enableTeamMode");
+        } else {
+            postMessage("disableTeamMode");
+        }
+        updateSetting("enableTeamMode", newVal);
+    };
+
+    const handleClearChat = () => {
+        postMessage("clearChatHistory");
     };
 
     return (
@@ -148,7 +171,23 @@ export default function SettingsTab({ onEditProfile }: SettingsTabProps) {
 
             <hr style={{ border: "none", borderTop: "1px solid var(--draftai-border)", margin: "16px 0" }} />
 
-            {/* Save & Profile */}
+            {/* Team Mode */}
+            <h4 style={{ fontSize: 13, marginBottom: 12 }}>👥 Team Mode</h4>
+
+            <div className="setting-row">
+                <div>
+                    <div className="setting-label">Share via .draftai.json</div>
+                    <div className="setting-desc">Export profile & settings for your team</div>
+                </div>
+                <button
+                    className={`toggle ${settings.enableTeamMode ? "on" : ""}`}
+                    onClick={handleTeamModeToggle}
+                />
+            </div>
+
+            <hr style={{ border: "none", borderTop: "1px solid var(--draftai-border)", margin: "16px 0" }} />
+
+            {/* Save & Profile & Chat */}
             <div className="flex flex-col gap-sm">
                 <button className="btn btn-primary w-full" onClick={handleSave}>
                     {saved ? "✓ Saved!" : "💾 Save Settings"}
@@ -156,7 +195,11 @@ export default function SettingsTab({ onEditProfile }: SettingsTabProps) {
                 <button className="btn btn-secondary w-full" onClick={onEditProfile}>
                     📝 Edit Project Profile
                 </button>
+                <button className="btn btn-secondary w-full" onClick={handleClearChat}>
+                    {chatCleared ? "✓ Cleared!" : "🗑️ Clear Chat History"}
+                </button>
             </div>
         </div>
     );
 }
+
