@@ -145,7 +145,11 @@ function isTestFile(filePath: string): boolean {
 function checkTestFileExists(filePath: string, workspaceRoot: string): boolean {
   const ext = path.extname(filePath);
   const basename = path.basename(filePath, ext);
-  const dir = path.dirname(filePath);
+  // Resolve relative filePath against workspaceRoot
+  const absolutePath = path.isAbsolute(filePath)
+    ? filePath
+    : path.join(workspaceRoot, filePath);
+  const dir = path.dirname(absolutePath);
 
   // Check common test locations
   const candidates = [

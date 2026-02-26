@@ -3,6 +3,8 @@ import OpenAI from "openai";
 const LONGCAT_BASE_URL = "https://api.longcat.chat/openai";
 const MODEL_CHAT = "LongCat-Flash-Chat";
 const MODEL_LITE = "LongCat-Flash-Lite";
+const TIMEOUT_CHAT_MS = 30_000;
+const TIMEOUT_ANALYZE_MS = 60_000;
 
 export class LongCatService {
   private client: OpenAI | null = null;
@@ -45,20 +47,27 @@ export class LongCatService {
 
     this.resetDailyUsageIfNeeded();
 
-    const response = await this.client.chat.completions.create({
-      model: MODEL_CHAT,
-      messages,
-      temperature: options?.temperature ?? 0.3,
-      max_tokens: options?.maxTokens ?? 2000,
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_CHAT_MS);
 
-    // Track token usage
-    if (response.usage) {
-      this.tokenUsage.input += response.usage.prompt_tokens;
-      this.tokenUsage.output += response.usage.completion_tokens;
+    try {
+      const response = await this.client.chat.completions.create({
+        model: MODEL_CHAT,
+        messages,
+        temperature: options?.temperature ?? 0.3,
+        max_tokens: options?.maxTokens ?? 2000,
+      }, { signal: controller.signal as any });
+
+      // Track token usage
+      if (response.usage) {
+        this.tokenUsage.input += response.usage.prompt_tokens;
+        this.tokenUsage.output += response.usage.completion_tokens;
+      }
+
+      return response.choices[0]?.message?.content ?? "";
+    } finally {
+      clearTimeout(timer);
     }
-
-    return response.choices[0]?.message?.content ?? "";
   }
 
   /**
@@ -73,14 +82,21 @@ export class LongCatService {
       throw new Error("LongCat API not initialized. Please set your API key in Settings.");
     }
 
-    const response = await this.client.chat.completions.create({
-      model: MODEL_LITE,
-      messages,
-      temperature: options?.temperature ?? 0.2,
-      max_tokens: options?.maxTokens ?? 1000,
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_CHAT_MS);
 
-    return response.choices[0]?.message?.content ?? "";
+    try {
+      const response = await this.client.chat.completions.create({
+        model: MODEL_LITE,
+        messages,
+        temperature: options?.temperature ?? 0.2,
+        max_tokens: options?.maxTokens ?? 1000,
+      }, { signal: controller.signal as any });
+
+      return response.choices[0]?.message?.content ?? "";
+    } finally {
+      clearTimeout(timer);
+    }
   }
 
   /**
@@ -103,19 +119,32 @@ export class LongCatService {
       throw new Error("LongCat API not initialized. Please set your API key in Settings.");
     }
 
-    const stream = await this.client.chat.completions.create({
-      model: MODEL_CHAT,
-      messages,
-      temperature: 0.5,
-      max_tokens: 3000,
-      stream: true,
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TIMEOUT_ANALYZE_MS);
 
-    for await (const chunk of stream) {
-      const delta = chunk.choices[0]?.delta?.content;
-      if (delta) {
-        yield delta;
+    try {
+      const stream = await this.client.chat.completions.create({
+        model: MODEL_CHAT,
+        messages,
+        temperature: 0.5,
+        max_tokens: 3000,
+        stream: true,
+      }, { signal: controller.signal as any });
+
+      for await (const chunk of stream) {
+        const delta = chunk.choices[0]?.delta?.content;
+        if (delta) {
+          yield delta;
+        }
       }
+    } catch (err: any) {
+      // Re-throw abort as a user-friendly timeout message
+      if (err?.name === "AbortError" || controller.signal.aborted) {
+        throw new Error("Request timed out. The AI took too long to respond.");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
   }
 }

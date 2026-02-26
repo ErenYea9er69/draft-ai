@@ -99,6 +99,10 @@ export function activate(context: vscode.ExtensionContext) {
 
         case "saveSettings": {
           const newSettings = message.payload;
+          if (!newSettings || typeof newSettings !== "object") {
+            console.warn("saveSettings: invalid payload");
+            break;
+          }
           for (const [key, value] of Object.entries(newSettings)) {
             await storage.saveSetting(key, value);
           }
@@ -175,7 +179,10 @@ export function activate(context: vscode.ExtensionContext) {
         }
 
         case "suppressIssue": {
-          await storage.suppressIssue(message.payload.issueId);
+          const issueId = message.payload?.issueId;
+          if (issueId) {
+            await storage.suppressIssue(issueId);
+          }
           break;
         }
 
@@ -308,7 +315,15 @@ export function activate(context: vscode.ExtensionContext) {
 
         // ── Chat ──
         case "sendChatMessage": {
-          const userMsg = message.payload as { content: string; context?: string };
+          const userMsg = message.payload as { content: string; context?: string } | undefined;
+
+          if (!userMsg?.content) {
+            panelProvider.postMessage({
+              type: "error",
+              payload: "Invalid chat message.",
+            });
+            break;
+          }
 
           if (!longcat.isReady()) {
             panelProvider.postMessage({

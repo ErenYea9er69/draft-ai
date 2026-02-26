@@ -22,8 +22,12 @@ export class DraftAIPanel implements vscode.WebviewViewProvider {
    * Send a message to the webview.
    */
   postMessage(message: WebviewMessage): void {
-    if (this._view) {
-      this._view.webview.postMessage(message);
+    try {
+      if (this._view?.webview) {
+        this._view.webview.postMessage(message);
+      }
+    } catch {
+      // Webview disposed — ignore silently
     }
   }
 
@@ -110,7 +114,7 @@ export class DraftAIPanel implements vscode.WebviewViewProvider {
     html = html.replace(
       "<head>",
       `<head>
-        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${cspSource}; font-src ${cspSource}; img-src ${cspSource} https:; connect-src https://api.longcat.chat https://api.tavily.com;">`
+        <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${cspSource}; font-src ${cspSource}; img-src ${cspSource} https:; connect-src https://api.longcat.chat https://api.tavily.com https://api.osv.dev;">`
     );
 
     return html;

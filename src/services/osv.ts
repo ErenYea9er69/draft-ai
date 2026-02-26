@@ -9,6 +9,7 @@ import { randomUUID } from "crypto";
  */
 
 const OSV_API_URL = "https://api.osv.dev/v1";
+const OSV_TIMEOUT_MS = 10_000;
 
 interface OSVVulnerability {
   id: string;
@@ -35,6 +36,9 @@ export class OSVService {
     version: string,
     ecosystem: string = "npm"
   ): Promise<OSVVulnerability[]> {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), OSV_TIMEOUT_MS);
+
     try {
       const response = await fetch(`${OSV_API_URL}/query`, {
         method: "POST",
@@ -43,6 +47,7 @@ export class OSVService {
           package: { name, ecosystem },
           version,
         }),
+        signal: controller.signal,
       });
 
       if (!response.ok) return [];
@@ -51,6 +56,8 @@ export class OSVService {
       return data.vulns ?? [];
     } catch {
       return [];
+    } finally {
+      clearTimeout(timer);
     }
   }
 
@@ -83,7 +90,7 @@ export class OSVService {
             const version = versionRange.replace(/^[^0-9]*/, "");
             if (!version) return [];
             const vulns = await this.checkPackage(name, version);
-            return vulns.map((v) => this.vulnToIssue(name, version, v, pkgPath));
+            return vulns.map((v) => this.vulnToIssue(name, version, v, "package.json"));
           })
         );
 

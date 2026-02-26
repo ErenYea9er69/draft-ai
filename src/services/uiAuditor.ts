@@ -407,13 +407,22 @@ export class UIAuditorService {
     profile: ProjectProfile,
     url: string
   ): Promise<AuditFinding[]> {
+    // Validate URL before using it
+    let hostname: string;
+    try {
+      hostname = new URL(url).hostname;
+    } catch {
+      console.warn(`Invalid comparison URL: ${url}`);
+      return [];
+    }
+
     // Use Tavily to fetch the page content
     const searchResponse = await this.tavily.search(
       `site:${url} features design`,
       {
         searchDepth: "advanced",
         maxResults: 3,
-        includeDomains: [new URL(url).hostname],
+        includeDomains: [hostname],
       }
     );
 

@@ -15,6 +15,7 @@ export class GitService {
    * Check if the workspace is a Git repository.
    */
   async isGitRepo(): Promise<boolean> {
+    if (!this.workspaceRoot) return false;
     try {
       await execAsync("git rev-parse --is-inside-work-tree", {
         cwd: this.workspaceRoot,
@@ -29,6 +30,7 @@ export class GitService {
    * Get files changed since the last commit (unstaged + staged).
    */
   async getChangedFiles(): Promise<string[]> {
+    if (!this.workspaceRoot) return [];
     try {
       const { stdout: unstaged } = await execAsync(
         "git diff --name-only",

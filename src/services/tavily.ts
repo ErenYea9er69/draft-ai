@@ -1,4 +1,5 @@
 const TAVILY_API_URL = "https://api.tavily.com";
+const TAVILY_TIMEOUT_MS = 15_000;
 
 export interface TavilySearchResult {
   title: string;
@@ -40,28 +41,41 @@ export class TavilyService {
       throw new Error("Tavily API key not set. Please add it in Settings.");
     }
 
-    const response = await fetch(`${TAVILY_API_URL}/search`, {
-      method: "POST",
-      headers: {
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        api_key: this.apiKey,
-        query,
-        search_depth: options?.searchDepth ?? "basic",
-        max_results: options?.maxResults ?? 5,
-        include_domains: options?.includeDomains ?? [],
-        exclude_domains: options?.excludeDomains ?? [],
-        include_answer: true,
-      }),
-    });
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), TAVILY_TIMEOUT_MS);
 
-    if (!response.ok) {
-      const errorText = await response.text();
-      throw new Error(`Tavily search failed (${response.status}): ${errorText}`);
+    try {
+      const response = await fetch(`${TAVILY_API_URL}/search`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({
+          api_key: this.apiKey,
+          query,
+          search_depth: options?.searchDepth ?? "basic",
+          max_results: options?.maxResults ?? 5,
+          include_domains: options?.includeDomains ?? [],
+          exclude_domains: options?.excludeDomains ?? [],
+          include_answer: true,
+        }),
+        signal: controller.signal,
+      });
+
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Tavily search failed (${response.status}): ${errorText}`);
+      }
+
+      return response.json() as Promise<TavilySearchResponse>;
+    } catch (err: any) {
+      if (err?.name === "AbortError") {
+        throw new Error("Tavily search timed out. Please try again.");
+      }
+      throw err;
+    } finally {
+      clearTimeout(timer);
     }
-
-    return response.json() as Promise<TavilySearchResponse>;
   }
 
   /**
