@@ -1,0 +1,122 @@
+{
+  "name": "draft-ai",
+  "displayName": "Draft AI",
+  "description": "Always-on co-pilot: code health, competitor insights, UI audit, and contextual chat — right in your editor.",
+  "version": "0.1.0",
+  "publisher": "draft-ai",
+  "engines": {
+    "vscode": "^1.85.0"
+  },
+  "categories": [
+    "Other",
+    "Linters",
+    "Testing"
+  ],
+  "activationEvents": [
+    "onStartupFinished"
+  ],
+  "main": "./dist/extension.js",
+  "icon": "media/icon.svg",
+  "contributes": {
+    "viewsContainers": {
+      "activitybar": [
+        {
+          "id": "draftai-panel",
+          "title": "Draft AI",
+          "icon": "media/icon.svg"
+        }
+      ]
+    },
+    "views": {
+      "draftai-panel": [
+        {
+          "type": "webview",
+          "id": "draftai.mainView",
+          "name": "Draft AI"
+        }
+      ]
+    },
+    "commands": [
+      {
+        "command": "draftai.openPanel",
+        "title": "Draft AI: Open Panel"
+      },
+      {
+        "command": "draftai.runScan",
+        "title": "Draft AI: Run Code Health Scan"
+      },
+      {
+        "command": "draftai.runResearch",
+        "title": "Draft AI: Run Competitor Research"
+      },
+      {
+        "command": "draftai.runAudit",
+        "title": "Draft AI: Run UI/UX Audit"
+      },
+      {
+        "command": "draftai.editProfile",
+        "title": "Draft AI: Edit Project Profile"
+      }
+    ],
+    "configuration": {
+      "title": "Draft AI",
+      "properties": {
+        "draftai.longcatApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your LongCat API key from longcat.chat/platform/api_keys"
+        },
+        "draftai.tavilyApiKey": {
+          "type": "string",
+          "default": "",
+          "description": "Your Tavily API key for competitor research"
+        },
+        "draftai.scanIntervalMinutes": {
+          "type": "number",
+          "default": 30,
+          "minimum": 15,
+          "maximum": 120,
+          "description": "Minutes between automatic code health scans"
+        },
+        "draftai.gitAwareScanning": {
+          "type": "boolean",
+          "default": true,
+          "description": "Only scan files changed since last commit"
+        },
+        "draftai.enableCodeHealth": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the Code Health pillar"
+        },
+        "draftai.enableCompetitorInsights": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the Competitor Insights pillar"
+        },
+        "draftai.enableUIAudit": {
+          "type": "boolean",
+          "default": true,
+          "description": "Enable the UI/UX Audit pillar"
+        }
+      }
+    }
+  },
+  "scripts": {
+    "vscode:prepublish": "npm run build",
+    "build": "node esbuild.js --production && cd webview-ui && npm run build",
+    "watch": "node esbuild.js --watch",
+    "dev": "concurrently \"npm run watch\" \"cd webview-ui && npm run dev\"",
+    "lint": "eslint src --ext ts",
+    "package": "vsce package"
+  },
+  "devDependencies": {
+    "@types/node": "^20.11.0",
+    "@types/vscode": "^1.85.0",
+    "concurrently": "^8.2.0",
+    "esbuild": "^0.20.0",
+    "typescript": "^5.3.0"
+  },
+  "dependencies": {
+    "openai": "^4.28.0"
+  }
+}
