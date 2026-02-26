@@ -16,7 +16,6 @@
     "onStartupFinished"
   ],
   "main": "./dist/extension.js",
-  "icon": "media/icon.svg",
   "contributes": {
     "viewsContainers": {
       "activitybar": [
