@@ -73,6 +73,34 @@ export class OSVService {
 
     try {
       const pkgJson = JSON.parse(fs.readFileSync(pkgPath, "utf-8"));
+
+      // Prefer package-lock.json for exact versions (like Snyk does)
+      const lockPath = path.join(workspaceRoot, "package-lock.json");
+      let lockDeps: Record<string, string> = {};
+
+      if (fs.existsSync(lockPath)) {
+        try {
+          const lockJson = JSON.parse(fs.readFileSync(lockPath, "utf-8"));
+          // npm v2+ lockfile format: packages["node_modules/pkgname"].version
+          if (lockJson.packages) {
+            for (const [key, value] of Object.entries(lockJson.packages)) {
+              if (key.startsWith("node_modules/")) {
+                const name = key.replace("node_modules/", "");
+                lockDeps[name] = (value as any).version ?? "";
+              }
+            }
+          }
+          // npm v1 lockfile format: dependencies["pkgname"].version
+          else if (lockJson.dependencies) {
+            for (const [name, value] of Object.entries(lockJson.dependencies)) {
+              lockDeps[name] = (value as any).version ?? "";
+            }
+          }
+        } catch {
+          // Fall through to package.json ranges
+        }
+      }
+
       const allDeps: Record<string, string> = {
         ...pkgJson.dependencies,
         ...pkgJson.devDependencies,
@@ -86,8 +114,8 @@ export class OSVService {
         const batch = entries.slice(i, i + BATCH_SIZE);
         const results = await Promise.all(
           batch.map(async ([name, versionRange]) => {
-            // Clean version range — remove ^, ~, >= etc.
-            const version = versionRange.replace(/^[^0-9]*/, "");
+            // Use exact version from lock file, fall back to cleaned range
+            const version = lockDeps[name] || versionRange.replace(/^[^0-9]*/, "");
             if (!version) return [];
             const vulns = await this.checkPackage(name, version);
             return vulns.map((v) => this.vulnToIssue(name, version, v, "package.json"));
@@ -134,8 +162,8 @@ export class OSVService {
       title: `${cveId}: ${pkgName}@${version}`,
       description: vuln.summary || vuln.details?.slice(0, 200) || "Known vulnerability in this dependency.",
       fix: fixedVersion
-        ? `Update to ${pkgName}@${fixedVersion}: npm install ${pkgName}@${fixedVersion}`
-        : `Check ${vuln.id} for remediation guidance`,
+        ? `Update to ${pkgName}@${fixedVersion}: npm install ${pkgName}@${fixedVersion} — Details: https://osv.dev/vulnerability/${vuln.id}`
+        : `Review vulnerability: https://osv.dev/vulnerability/${vuln.id}`,
       suppressed: false,
     };
   }

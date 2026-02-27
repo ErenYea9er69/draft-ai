@@ -1,15 +1,22 @@
 import type { ProjectProfile, TechStack } from "../types";
 
 /**
- * Competitor analysis prompt — instructs LongCat to synthesize
- * search results into structured gap analysis and roadmap.
+ * Competitor analysis prompts — each prompt has ONE target.
+ * Prompt 1: Gap Analysis (feature matrix + market positioning)
+ * Prompt 2: Roadmap (prioritized action plan)
  */
 
+/**
+ * Gap Analysis prompt — instructs LongCat to build a feature comparison matrix
+ * and identify specific gaps, opportunities, and threats.
+ *
+ * ONE TARGET: Produce a structured competitive gap analysis.
+ */
 export function buildGapAnalysisPrompt(
   profile: ProjectProfile,
   techStack?: TechStack
 ): string {
-  return `You are a product strategist specializing in competitive analysis for software products.
+  return `You are a product strategist who builds competitive analysis reports for software startups.
 
 ## Product Under Analysis
 - **App**: ${profile.appDescription}
@@ -19,43 +26,56 @@ export function buildGapAnalysisPrompt(
 - **Design Intent**: ${profile.designIntent}
 ${techStack ? `- **Tech Stack**: ${techStack.frameworks.join(", ")} / ${techStack.languages.join(", ")}` : ""}
 
-## Task
-Analyze the competitor research data provided and produce a structured gap analysis. Compare each competitor against this product.
+## Your ONE Job
+Analyze the competitor research data provided and produce a **structured gap analysis**.
+
+## How To Analyze
+1. For each competitor, extract their **top 5 features**, **pricing**, and **one key weakness**
+2. Build a mental feature comparison matrix: which features exist in competitors but NOT in this product?
+3. Identify market gaps that NO competitor fills well
+4. List threats that are hard to replicate (e.g., network effects, data moats, brand recognition)
 
 ## Rules
-1. Be specific — reference actual features and pricing, not generic observations
-2. Focus on actionable gaps the developer can close
-3. Consider the tech stack when evaluating feasibility
-4. Prioritize opportunities by impact × effort
+1. Be specific — reference actual features and real pricing tiers, not generic observations
+2. Every "missing feature" must name at least one competitor that has it
+3. Every "opportunity" must explain WHY no competitor fills it well
+4. Consider the tech stack when evaluating feasibility of closing gaps
 5. Don't repeat the competitor data verbatim — synthesize insights
 
-## Response Format
-Return **only** valid JSON:
+## Example Output
 \`\`\`json
 {
   "competitorProfiles": [
     {
-      "name": "Competitor Name",
-      "strengths": ["specific strength 1"],
-      "weaknesses": ["specific weakness 1"],
-      "features": ["feature 1", "feature 2"],
-      "pricing": "Free / $X/mo",
-      "userSentiment": "Brief summary of user reviews"
+      "name": "Acme Inc",
+      "strengths": ["Large user base", "Free tier with generous limits"],
+      "weaknesses": ["No API access on free plan"],
+      "features": ["Dashboard", "Team collaboration", "API", "Webhooks", "Custom domains"],
+      "pricing": "Free / $12/mo Pro / $49/mo Team",
+      "userSentiment": "Users love the UI but complain about slow support"
     }
   ],
-  "missingFeatures": ["Feature your product lacks that competitors have"],
-  "opportunities": ["Gaps no competitor fills well"],
-  "threats": ["Competitor advantages that are hard to replicate"]
+  "missingFeatures": ["Real-time collaboration (offered by Acme and Beta)"],
+  "opportunities": ["No competitor offers AI-powered onboarding — high demand in user forums"],
+  "threats": ["Acme has 50K users and strong brand recognition"]
 }
-\`\`\``;
+\`\`\`
+
+## Response Format
+Return **only** valid JSON matching the structure above.`;
 }
 
+/**
+ * Roadmap prompt — builds a prioritized feature roadmap from gap analysis.
+ *
+ * ONE TARGET: Produce a ranked list of what to build next.
+ */
 export function buildRoadmapPrompt(
   profile: ProjectProfile,
-  gapAnalysisJson: string,
+  gapSummary: string,
   healthScore?: number
 ): string {
-  return `You are a product strategist creating an actionable roadmap for a software product.
+  return `You are a product strategist creating a prioritized roadmap for a software product.
 
 ## Product
 - **App**: ${profile.appDescription}
@@ -63,15 +83,23 @@ export function buildRoadmapPrompt(
 - **Planned Features**: ${profile.plannedFeatures}
 ${healthScore !== undefined ? `- **Code Health Score**: ${healthScore}/100` : ""}
 
-## Gap Analysis
-${gapAnalysisJson}
+## Competitive Gap Analysis
+${gapSummary}
 
-## Task
-Based on the gap analysis, create a prioritized roadmap of features to build next. Consider:
-1. What competitors offer that this product doesn't
-2. What opportunities no competitor addresses well
-3. What the planned features already cover (don't duplicate)
-4. Code health — if score is low, suggest stabilization before new features
+## Your ONE Job
+Create a prioritized roadmap of the top 5-8 features to build next.
+
+## Prioritization Criteria
+1. **Impact**: How many users would benefit? Does it close a critical competitive gap?
+2. **Effort**: Small (1-2 days), Medium (1-2 weeks), Large (1+ month)
+3. **Urgency**: Is a competitor already winning because of this feature?
+4. **Code health**: If health score is below 60, suggest a stabilization sprint FIRST
+
+## Rules
+1. Don't suggest features already in "Planned Features" unless they need reprioritization
+2. Each item must have a clear rationale tied to competitive data
+3. If health score is low, the first roadmap item should be "Technical debt sprint"
+4. Be realistic about effort — don't mark everything as "small"
 
 ## Response Format
 Return **only** valid JSON:

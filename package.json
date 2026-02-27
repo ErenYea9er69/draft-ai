@@ -21,8 +21,7 @@
       "activitybar": [
         {
           "id": "draftai-panel",
-          "title": "Draft AI",
-          "icon": "media/icon.svg"
+          "title": "Draft AI"
         }
       ]
     },

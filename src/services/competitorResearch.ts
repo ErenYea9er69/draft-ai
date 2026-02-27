@@ -78,7 +78,7 @@ export class CompetitorResearchService {
     let gapAnalysis: GapAnalysis;
 
     try {
-      const gapResponse = await this.longcat.chat(
+      const gapResponse = await this.longcat.lite(
         [
           { role: "system", content: gapAnalysisPrompt },
           { role: "user", content: researchDocument },

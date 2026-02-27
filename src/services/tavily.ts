@@ -86,14 +86,14 @@ export class TavilyService {
     depth: "surface" | "deep"
   ): Promise<TavilySearchResult[]> {
     const queries = [
-      `${competitorName} features product`,
-      `${competitorName} pricing plans`,
+      `${competitorName} features pricing plans`,
+      `${competitorName} changelog new features 2024 2025`,
     ];
 
     if (depth === "deep") {
       queries.push(
-        `${competitorName} reviews user feedback`,
-        `${competitorName} Reddit discussion opinions`,
+        `${competitorName} reviews user feedback complaints`,
+        `${competitorName} vs alternatives comparison`,
         `${competitorName} Product Hunt launch`
       );
     }

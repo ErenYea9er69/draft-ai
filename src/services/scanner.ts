@@ -10,12 +10,12 @@ import { analyzePerformanceIssues } from "../analyzers/performance";
 import { LongCatService } from "./longcat";
 import { GitService } from "./git";
 import { OSVService } from "./osv";
-import { buildCodeHealthPrompt, buildChunkAnalysisPrompt } from "../prompts/codeHealth";
+import { buildCodeHealthPrompt, buildChunkAnalysisPrompt, type HealthCategory } from "../prompts/codeHealth";
 
 /** Max file size to analyze (100KB) */
 const MAX_FILE_SIZE = 100_000;
 /** Max tokens per AI chunk */
-const MAX_CHUNK_TOKENS = 4000;
+const MAX_CHUNK_TOKENS = 8000;
 /** Approx chars per token */
 const CHARS_PER_TOKEN = 4;
 /** File extensions to scan */
@@ -100,18 +100,17 @@ export class ScannerService {
       progress: 40,
     });
 
-    // 3. Run AI-powered analysis (if API key configured)
+    // 3. Run AI-powered analysis (if API key configured) — one pass per category
     let aiIssues: CodeIssue[] = [];
     if (this.longcat.isReady()) {
-      try {
-        aiIssues = await this.runAIAnalysis(filesToScan, techStack, profile, onProgress);
-      } catch (err: any) {
-        console.warn("AI analysis failed:", err.message);
-        onProgress({
-          status: "ai",
-          message: `AI analysis skipped: ${err.message}`,
-          progress: 70,
-        });
+      const categories: HealthCategory[] = ["security", "bugs", "structure", "performance"];
+      for (const category of categories) {
+        try {
+          const categoryIssues = await this.runAIAnalysis(filesToScan, techStack, profile, category, onProgress);
+          aiIssues.push(...categoryIssues);
+        } catch (err: any) {
+          console.warn(`AI ${category} analysis failed:`, err.message);
+        }
       }
     } else {
       onProgress({
@@ -163,9 +162,10 @@ export class ScannerService {
     files: string[],
     techStack: TechStack,
     profile: ProjectProfile | undefined,
+    category: HealthCategory,
     onProgress: (progress: ScanProgress) => void
   ): Promise<CodeIssue[]> {
-    const systemPrompt = buildCodeHealthPrompt(techStack, profile?.appDescription);
+    const systemPrompt = buildCodeHealthPrompt(techStack, category, profile?.appDescription);
     const issues: CodeIssue[] = [];
 
     // Build file chunks (group small files together, split large files)
@@ -174,12 +174,12 @@ export class ScannerService {
     for (let i = 0; i < chunks.length; i++) {
       onProgress({
         status: "ai",
-        message: `AI analyzing chunk ${i + 1}/${chunks.length}...`,
+        message: `AI ${category} scan — chunk ${i + 1}/${chunks.length}...`,
         progress: 40 + Math.round((i / chunks.length) * 30),
       });
 
       try {
-        const response = await this.longcat.analyze(systemPrompt, chunks[i]);
+        const response = await this.longcat.analyzeLite(systemPrompt, chunks[i]);
 
         // Parse JSON response
         const parsed = this.parseAIResponse(response);

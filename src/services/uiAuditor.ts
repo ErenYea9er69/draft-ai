@@ -11,7 +11,9 @@ import type {
 import { LongCatService } from "./longcat";
 import { TavilyService } from "./tavily";
 import {
-  buildUIAuditPrompt,
+  buildDesignAuditPrompt,
+  buildAccessibilityAuditPrompt,
+  buildStructureAuditPrompt,
   buildComparisonPrompt,
   type DesignTokens,
 } from "../prompts/uiAudit";
@@ -81,23 +83,60 @@ export class UIAuditorService {
     if (this.longcat.isReady()) {
       try {
         const codeSnapshot = await this.buildCodeSnapshot(frontendFiles);
-        const prompt = buildUIAuditPrompt(profile, techStack, designTokens);
 
-        const response = await this.longcat.chat(
-          [
-            { role: "system", content: prompt },
-            { role: "user", content: codeSnapshot },
-          ],
-          { temperature: 0.1, maxTokens: 4000 }
-        );
+        // Sub-prompt 1: Design Consistency (Flash-Chat for nuanced reasoning)
+        onProgress({ status: "analyzing", message: "AI scoring design consistency...", progress: 35 });
+        try {
+          const designPrompt = buildDesignAuditPrompt(profile, techStack, designTokens);
+          const designResponse = await this.longcat.chat(
+            [
+              { role: "system", content: designPrompt },
+              { role: "user", content: codeSnapshot },
+            ],
+            { temperature: 0.1, maxTokens: 3000 }
+          );
+          const designParsed = this.parseSubAuditResponse(designResponse);
+          scores.design = designParsed.score;
+          aiFindings.push(...designParsed.findings.map((f: AuditFinding) => ({ ...f, area: "design" as const })));
+        } catch (err: any) {
+          console.warn("Design audit failed:", err.message);
+        }
 
-        const parsed = this.parseAuditResponse(response);
-        aiFindings = parsed.findings;
-        scores = {
-          design: parsed.designConsistencyScore,
-          accessibility: parsed.accessibilityScore,
-          structure: parsed.structureScore,
-        };
+        // Sub-prompt 2: Accessibility (Flash-Chat for WCAG expertise)
+        onProgress({ status: "analyzing", message: "AI scoring accessibility...", progress: 50 });
+        try {
+          const a11yPrompt = buildAccessibilityAuditPrompt(profile, techStack);
+          const a11yResponse = await this.longcat.chat(
+            [
+              { role: "system", content: a11yPrompt },
+              { role: "user", content: codeSnapshot },
+            ],
+            { temperature: 0.1, maxTokens: 3000 }
+          );
+          const a11yParsed = this.parseSubAuditResponse(a11yResponse);
+          scores.accessibility = a11yParsed.score;
+          aiFindings.push(...a11yParsed.findings.map((f: AuditFinding) => ({ ...f, area: "accessibility" as const })));
+        } catch (err: any) {
+          console.warn("Accessibility audit failed:", err.message);
+        }
+
+        // Sub-prompt 3: Structure (Flash-Lite — internal analysis)
+        onProgress({ status: "analyzing", message: "AI scoring component structure...", progress: 60 });
+        try {
+          const structPrompt = buildStructureAuditPrompt(profile, techStack);
+          const structResponse = await this.longcat.lite(
+            [
+              { role: "system", content: structPrompt },
+              { role: "user", content: codeSnapshot },
+            ],
+            { temperature: 0.1, maxTokens: 3000 }
+          );
+          const structParsed = this.parseSubAuditResponse(structResponse);
+          scores.structure = structParsed.score;
+          aiFindings.push(...structParsed.findings.map((f: AuditFinding) => ({ ...f, area: "structure" as const })));
+        } catch (err: any) {
+          console.warn("Structure audit failed:", err.message);
+        }
       } catch (err: any) {
         console.error("AI audit analysis failed:", err.message);
       }
@@ -388,7 +427,7 @@ export class UIAuditorService {
       try {
         const content = fs.readFileSync(file.fsPath, "utf-8");
         const relativePath = path.relative(this.workspaceRoot, file.fsPath);
-        const truncated = content.slice(0, 2000);
+        const truncated = content.slice(0, 3000);
         const approxTokens = Math.ceil(truncated.length / 4);
 
         snapshot += `## ${relativePath}\n\`\`\`\n${truncated}\n\`\`\`\n\n`;
@@ -549,5 +588,35 @@ export class UIAuditorService {
       accessibility: compute("accessibility"),
       structure: compute("structure"),
     };
+  }
+
+  /**
+   * Parse a focused sub-audit response — expects { score, findings }.
+   */
+  private parseSubAuditResponse(response: string): {
+    score: number;
+    findings: AuditFinding[];
+  } {
+    try {
+      let json = response.trim();
+      if (json.startsWith("```")) {
+        json = json.replace(/^```(?:json)?\n?/, "").replace(/\n?```$/, "");
+      }
+      const parsed = JSON.parse(json);
+      return {
+        score: Math.min(100, Math.max(0, parsed.score ?? 0)),
+        findings: (parsed.findings ?? []).map((f: any) => ({
+          area: f.area ?? "design",
+          title: f.title ?? "Untitled finding",
+          description: f.description ?? "",
+          recommendation: f.recommendation ?? "",
+          severity: (f.severity as IssueSeverity) ?? "suggestion",
+          file: f.file,
+          line: f.line,
+        })),
+      };
+    } catch {
+      return { score: 0, findings: [] };
+    }
   }
 }

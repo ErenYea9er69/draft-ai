@@ -4,7 +4,7 @@ const LONGCAT_BASE_URL = "https://api.longcat.chat/openai";
 const MODEL_CHAT = "LongCat-Flash-Chat";
 const MODEL_LITE = "LongCat-Flash-Lite";
 const TIMEOUT_CHAT_MS = 30_000;
-const TIMEOUT_ANALYZE_MS = 60_000;
+const TIMEOUT_ANALYZE_MS = 90_000;
 
 export class LongCatService {
   private client: OpenAI | null = null;
@@ -101,9 +101,21 @@ export class LongCatService {
 
   /**
    * Analyze code with a structured prompt — expects JSON back.
+   * Uses Flash-Chat (500K tokens/day free).
    */
   async analyze(systemPrompt: string, code: string): Promise<string> {
     return this.chat([
+      { role: "system", content: systemPrompt },
+      { role: "user", content: code },
+    ], { temperature: 0.1, maxTokens: 4000 });
+  }
+
+  /**
+   * Analyze code using Flash-Lite — for bulk/internal analysis.
+   * Uses Flash-Lite (50M tokens/day free — effectively unlimited).
+   */
+  async analyzeLite(systemPrompt: string, code: string): Promise<string> {
+    return this.lite([
       { role: "system", content: systemPrompt },
       { role: "user", content: code },
     ], { temperature: 0.1, maxTokens: 4000 });

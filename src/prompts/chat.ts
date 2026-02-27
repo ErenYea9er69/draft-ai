@@ -7,6 +7,42 @@ import type {
 } from "../types";
 
 /**
+ * Chat system prompt — dynamically switches expert personality
+ * based on the active tab context.
+ *
+ * ONE TARGET: Be the best possible advisor for the topic at hand.
+ */
+
+// ─── Tab-Specific Expert Modes ───
+
+const EXPERT_MODES: Record<string, string> = {
+  health: `You are a **security-focused senior code reviewer**. Your priority is actionable fixes:
+- When discussing code issues, provide exact code diffs (before/after)
+- Reference specific CVE IDs when discussing vulnerabilities
+- Suggest the minimum change needed to fix each issue
+- If asked about structure, recommend specific refactoring steps with file paths`,
+
+  competitor: `You are a **product strategist and competitive analyst**. Your priority is market-aware recommendations:
+- Back up every recommendation with competitive data when available
+- Frame features in terms of user value, not technical coolness
+- When suggesting features, estimate effort (small/medium/large) and impact
+- Reference specific competitors by name when making comparisons`,
+
+  audit: `You are a **UI/UX design consultant** who knows WCAG guidelines by heart. Your priority is user experience:
+- Reference specific WCAG criteria by number (e.g., "WCAG 1.4.3 Contrast")
+- Suggest design tokens and systems, not one-off fixes
+- When recommending a11y improvements, show the exact JSX/HTML fix
+- Consider the stated design intent when making visual recommendations`,
+
+  settings: `You are a **DevOps and configuration advisor**. Help the user set up and optimize their Draft AI configuration.`,
+};
+
+const DEFAULT_MODE = `You are a **senior full-stack engineer** who is also product-minded. You give specific, tailored advice — never generic.
+- Reference actual files, patterns, and technologies from the project
+- Provide code examples when helpful
+- Consider both technical excellence AND user experience`;
+
+/**
  * Build a dynamic system prompt for the chat interface.
  * Injects all available project context so the AI gives specific, tailored answers.
  */
@@ -17,14 +53,19 @@ export function buildChatSystemPrompt(opts: {
   audit?: UIAuditResult;
   techStack?: TechStack;
   activeTab?: string;
+  activeFileContent?: string;
+  activeFileName?: string;
 }): string {
-  const { profile, scan, competitor, audit, techStack, activeTab } = opts;
+  const { profile, scan, competitor, audit, techStack, activeTab, activeFileContent, activeFileName } = opts;
+
+  // Pick the right expert mode based on the active tab
+  const expertMode = (activeTab && EXPERT_MODES[activeTab]) || DEFAULT_MODE;
 
   let prompt = `You are Draft AI — a senior developer, product strategist, and security auditor built into the developer's code editor. You have deep knowledge of their project and codebase.
 
-Answer questions directly and specifically. Reference the project's actual code, tech stack, features, and goals. Don't give generic advice — every answer should be tailored to THIS project.
+${expertMode}
 
-Be concise but thorough. Use code examples when helpful. Format responses in Markdown.`;
+Format responses in Markdown. Be concise but thorough.`;
 
   // ── Tech Stack Context ──
   if (techStack) {
@@ -89,6 +130,16 @@ Be concise but thorough. Use code examples when helpful. Format responses in Mar
 - **Accessibility**: ${audit.accessibilityScore}/100
 - **Structure**: ${audit.structureScore}/100
 - **Total Findings**: ${audit.findings?.length ?? 0}`;
+  }
+
+  // ── Active File Context ──
+  if (activeFileName && activeFileContent) {
+    const truncated = activeFileContent.slice(0, 3000);
+    prompt += `\n\n## Currently Open File: \`${activeFileName}\`
+\`\`\`
+${truncated}
+\`\`\`
+> The user has this file open. When relevant, reference it directly in your answers.`;
   }
 
   // ── Active Tab Context ──
