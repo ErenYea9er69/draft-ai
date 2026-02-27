@@ -148,6 +148,7 @@ export type WebviewMessageType =
   | "researchComplete"
   | "researchProgress"
   | "auditComplete"
+  | "auditProgress"
   | "chatResponse"
   | "chatStreamChunk"
   | "chatCleared"

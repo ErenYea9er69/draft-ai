@@ -1,7 +1,6 @@
 import type { CodeIssue } from "../types";
 import * as path from "path";
 import * as fs from "fs";
-import { randomUUID } from "crypto";
 
 /**
  * Structure analyzer — checks architectural quality patterns.
@@ -25,7 +24,7 @@ export function analyzeStructureIssues(
     const testExists = checkTestFileExists(filePath, workspaceRoot);
     if (!testExists) {
       issues.push({
-        id: `str-missing-test-${randomUUID().slice(0, 8)}`,
+        id: `str-missing-test-${filePath}`,
         file: filePath,
         line: 1,
         category: "structure",
@@ -45,7 +44,7 @@ export function analyzeStructureIssues(
       const hasChildren = /children|props\.children|{children}/.test(content);
       if (hasChildren) {
         issues.push({
-          id: `str-no-error-boundary-${randomUUID().slice(0, 8)}`,
+          id: `str-no-error-boundary-${filePath}`,
           file: filePath,
           line: 1,
           category: "structure",
@@ -63,7 +62,7 @@ export function analyzeStructureIssues(
       const hasLoadingState = /loading|isLoading|pending|fetching/i.test(content);
       if (!hasLoadingState && /fetch|axios|api|\.get\(|\.post\(/i.test(content)) {
         issues.push({
-          id: `str-no-loading-${randomUUID().slice(0, 8)}`,
+          id: `str-no-loading-${filePath}`,
           file: filePath,
           line: 1,
           category: "structure",
@@ -81,7 +80,7 @@ export function analyzeStructureIssues(
       const hasEmptyState = /empty|noData|no\s*data|no\s*results|length\s*===?\s*0/i.test(content);
       if (!hasEmptyState) {
         issues.push({
-          id: `str-no-empty-state-${randomUUID().slice(0, 8)}`,
+          id: `str-no-empty-state-${filePath}`,
           file: filePath,
           line: 1,
           category: "structure",
@@ -99,7 +98,7 @@ export function analyzeStructureIssues(
   const lines = content.split("\n");
   if (lines.length > 400) {
     issues.push({
-      id: `str-large-file-${randomUUID().slice(0, 8)}`,
+      id: `str-large-file-${filePath}`,
       file: filePath,
       line: 1,
       category: "structure",
@@ -116,7 +115,7 @@ export function analyzeStructureIssues(
   for (const funcInfo of functionLengths) {
     if (funcInfo.lines > 60) {
       issues.push({
-        id: `str-long-function-${randomUUID().slice(0, 8)}`,
+        id: `str-long-func-${filePath}:${funcInfo.startLine}`,
         file: filePath,
         line: funcInfo.startLine,
         category: "structure",

@@ -61,6 +61,9 @@ const BUILD_TOOL_DETECTION: Record<string, string> = {
 
 export class StackDetectorService {
   private workspaceRoot: string;
+  private _cache: TechStack | null = null;
+  private _cacheTime = 0;
+  private static CACHE_TTL_MS = 5 * 60 * 1000; // 5 minutes
 
   constructor(workspaceRoot: string) {
     this.workspaceRoot = workspaceRoot;
@@ -68,8 +71,14 @@ export class StackDetectorService {
 
   /**
    * Auto-detect the tech stack from project files.
+   * Cached for 5 minutes to avoid redundant I/O.
    */
   async detect(): Promise<TechStack> {
+    // Return cached result if fresh
+    if (this._cache && Date.now() - this._cacheTime < StackDetectorService.CACHE_TTL_MS) {
+      return this._cache;
+    }
+
     const stack: TechStack = {
       languages: [],
       frameworks: [],
@@ -92,6 +101,9 @@ export class StackDetectorService {
     // Detect package manager
     await this.detectPackageManager(stack);
 
+    // Cache the result
+    this._cache = stack;
+    this._cacheTime = Date.now();
     return stack;
   }
 

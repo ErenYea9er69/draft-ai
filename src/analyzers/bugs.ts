@@ -1,5 +1,4 @@
 import type { CodeIssue } from "../types";
-import { randomUUID } from "crypto";
 
 /**
  * Bug analyzer — pattern-based detection of common bug patterns.
@@ -138,7 +137,7 @@ export function analyzeBugIssues(
 
       if (pattern.pattern.test(line)) {
         issues.push({
-          id: `bug-${pattern.name}-${randomUUID().slice(0, 8)}`,
+          id: `bug-${pattern.name}-${filePath}:${i + 1}`,
           file: filePath,
           line: i + 1,
           category: "bugs",

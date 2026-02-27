@@ -13,6 +13,7 @@ import { buildChatSystemPrompt } from "./prompts/chat";
 import type { WebviewMessage, ChatMessage } from "./types";
 
 let scanTimer: NodeJS.Timeout | undefined;
+let activeOperation: string | null = null; // Concurrent operation guard
 
 export function activate(context: vscode.ExtensionContext) {
   console.log("Draft AI is activating...");
@@ -31,14 +32,50 @@ export function activate(context: vscode.ExtensionContext) {
   const researchService = new CompetitorResearchService(longcat, tavily);
   const uiAuditor = new UIAuditorService(longcat, tavily, workspaceRoot);
 
-  // Initialize API keys from settings
+  // Initialize API keys from settings (validate before use)
   const settings = storage.getSettings();
-  if (settings.longcatApiKey) {
+  if (settings.longcatApiKey && settings.longcatApiKey.length >= 10) {
     longcat.initialize(settings.longcatApiKey);
   }
-  if (settings.tavilyApiKey) {
+  if (settings.tavilyApiKey && settings.tavilyApiKey.length >= 10) {
     tavily.initialize(settings.tavilyApiKey);
   }
+
+  // Auto-import team config if .draftai.json exists
+  storage.importTeamConfig(workspaceRoot).then((imported) => {
+    if (imported) {
+      console.log("Draft AI: Team config imported from .draftai.json");
+    }
+  });
+
+  // Wire up auto-scan timer
+  const startAutoScan = () => {
+    if (scanTimer) clearInterval(scanTimer);
+    const intervalMin = storage.getSettings().scanIntervalMinutes;
+    if (intervalMin > 0) {
+      scanTimer = setInterval(async () => {
+        if (activeOperation) return; // Don't overlap
+        try {
+          activeOperation = "auto-scan";
+          const autoStack = await stackDetector.detect();
+          const autoProfile = storage.getProfile();
+          const autoSettings = storage.getSettings();
+          const result = await scanner.runScan(autoStack, autoProfile, autoSettings.gitAwareScanning, () => {});
+          await storage.saveScanResult(result);
+          const scores = storage.getScores();
+          scores.codeHealth = result.healthScore;
+          await storage.saveScores(scores);
+          panelProvider.postMessage({ type: "scanComplete", payload: result });
+          panelProvider.postMessage({ type: "scoresUpdated", payload: scores });
+        } catch (err) {
+          console.warn("Auto-scan failed:", err);
+        } finally {
+          activeOperation = null;
+        }
+      }, intervalMin * 60 * 1000);
+    }
+  };
+  startAutoScan();
 
   // ─── Register Webview Panel ───
   const panelProvider = new DraftAIPanel(context.extensionUri);
@@ -107,12 +144,16 @@ export function activate(context: vscode.ExtensionContext) {
           for (const [key, value] of Object.entries(newSettings)) {
             await storage.saveSetting(key, value);
           }
-          // Re-initialize APIs if keys changed
-          if (newSettings.longcatApiKey) {
+          // Re-initialize APIs if keys changed (validate first)
+          if (newSettings.longcatApiKey && (newSettings.longcatApiKey as string).length >= 10) {
             longcat.initialize(newSettings.longcatApiKey as string);
           }
-          if (newSettings.tavilyApiKey) {
+          if (newSettings.tavilyApiKey && (newSettings.tavilyApiKey as string).length >= 10) {
             tavily.initialize(newSettings.tavilyApiKey as string);
+          }
+          // Restart auto-scan timer if interval changed
+          if ("scanIntervalMinutes" in newSettings) {
+            startAutoScan();
           }
           break;
         }
@@ -123,6 +164,15 @@ export function activate(context: vscode.ExtensionContext) {
           const scanTechStack = await stackDetector.detect();
           const scanProfile = storage.getProfile();
           const scanSettings = storage.getSettings();
+
+          // Concurrent operation guard
+          if (activeOperation) {
+            vscode.window.showWarningMessage(
+              `Draft AI: ${activeOperation} is already running. Please wait.`
+            );
+            break;
+          }
+          activeOperation = "Code Health Scan";
 
           try {
             const scanResult = await scanner.runScan(
@@ -180,6 +230,8 @@ export function activate(context: vscode.ExtensionContext) {
               type: "scanProgress",
               payload: { status: "error", message: `Scan failed: ${err.message}` },
             });
+          } finally {
+            activeOperation = null;
           }
           break;
         }
@@ -215,6 +267,15 @@ export function activate(context: vscode.ExtensionContext) {
             });
             break;
           }
+
+          // Concurrent operation guard
+          if (activeOperation) {
+            vscode.window.showWarningMessage(
+              `Draft AI: ${activeOperation} is already running. Please wait.`
+            );
+            break;
+          }
+          activeOperation = "Competitor Research";
 
           try {
             const result = await researchService.runResearch(
@@ -254,6 +315,8 @@ export function activate(context: vscode.ExtensionContext) {
               type: "researchProgress",
               payload: { status: "error", message: `Research failed: ${err.message}` },
             });
+          } finally {
+            activeOperation = null;
           }
           break;
         }
@@ -281,6 +344,15 @@ export function activate(context: vscode.ExtensionContext) {
             break;
           }
 
+          // Concurrent operation guard
+          if (activeOperation) {
+            vscode.window.showWarningMessage(
+              `Draft AI: ${activeOperation} is already running. Please wait.`
+            );
+            break;
+          }
+          activeOperation = "UI/UX Audit";
+
           try {
             const auditResult = await uiAuditor.runAudit(
               auditProfile,
@@ -288,8 +360,8 @@ export function activate(context: vscode.ExtensionContext) {
               auditComparisonUrl,
               (progress) => {
                 panelProvider.postMessage({
-                  type: "auditComplete",
-                  payload: { ...progress, _isProgress: true },
+                  type: "auditProgress",
+                  payload: progress,
                 });
               }
             );
@@ -324,6 +396,8 @@ export function activate(context: vscode.ExtensionContext) {
               type: "error",
               payload: `UI audit failed: ${err.message}`,
             });
+          } finally {
+            activeOperation = null;
           }
           break;
         }
@@ -369,6 +443,12 @@ export function activate(context: vscode.ExtensionContext) {
 
           // Build context for the AI
           const chatTechStack = await stackDetector.detect();
+
+          // Get active file content for context
+          const activeEditor = vscode.window.activeTextEditor;
+          const activeFileContent = activeEditor?.document.getText();
+          const activeFileName = activeEditor?.document.fileName;
+
           const systemPrompt = buildChatSystemPrompt({
             profile: storage.getProfile(),
             scan: storage.getLatestScan(),
@@ -376,6 +456,8 @@ export function activate(context: vscode.ExtensionContext) {
             audit: storage.getAuditResults(),
             techStack: chatTechStack,
             activeTab: userMsg.context,
+            activeFileContent: activeFileContent?.slice(0, 3000),
+            activeFileName,
           });
 
           // Get recent chat history for context
@@ -503,12 +585,14 @@ export function activate(context: vscode.ExtensionContext) {
     vscode.workspace.onDidChangeConfiguration((e) => {
       if (e.affectsConfiguration("draftai")) {
         const updatedSettings = storage.getSettings();
-        if (updatedSettings.longcatApiKey) {
+        if (updatedSettings.longcatApiKey && updatedSettings.longcatApiKey.length >= 10) {
           longcat.initialize(updatedSettings.longcatApiKey);
         }
-        if (updatedSettings.tavilyApiKey) {
+        if (updatedSettings.tavilyApiKey && updatedSettings.tavilyApiKey.length >= 10) {
           tavily.initialize(updatedSettings.tavilyApiKey);
         }
+        // Restart auto-scan timer if interval changed
+        startAutoScan();
       }
     })
   );

@@ -1,5 +1,4 @@
 import type { CodeIssue } from "../types";
-import { randomUUID } from "crypto";
 
 /**
  * Security analyzer — regex-based detection of common security issues.
@@ -137,7 +136,7 @@ export function analyzeSecurityIssues(
 
       if (pattern.pattern.test(line)) {
         issues.push({
-          id: `sec-${pattern.name}-${randomUUID().slice(0, 8)}`,
+          id: `sec-${pattern.name}-${filePath}:${i + 1}`,
           file: filePath,
           line: i + 1,
           category: "security",

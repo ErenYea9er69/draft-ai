@@ -19,6 +19,7 @@ export class GitService {
     try {
       await execAsync("git rev-parse --is-inside-work-tree", {
         cwd: this.workspaceRoot,
+        timeout: 5000,
       });
       return true;
     } catch {
@@ -34,15 +35,15 @@ export class GitService {
     try {
       const { stdout: unstaged } = await execAsync(
         "git diff --name-only",
-        { cwd: this.workspaceRoot }
+        { cwd: this.workspaceRoot, timeout: 5000 }
       );
       const { stdout: staged } = await execAsync(
         "git diff --cached --name-only",
-        { cwd: this.workspaceRoot }
+        { cwd: this.workspaceRoot, timeout: 5000 }
       );
       const { stdout: untracked } = await execAsync(
         "git ls-files --others --exclude-standard",
-        { cwd: this.workspaceRoot }
+        { cwd: this.workspaceRoot, timeout: 5000 }
       );
 
       const files = new Set<string>();
@@ -71,7 +72,7 @@ export class GitService {
     try {
       const { stdout } = await execAsync(
         "git diff --name-only HEAD~1 HEAD",
-        { cwd: this.workspaceRoot }
+        { cwd: this.workspaceRoot, timeout: 5000 }
       );
       return stdout
         .split("\n")
@@ -89,7 +90,7 @@ export class GitService {
     try {
       const { stdout } = await execAsync(
         `git log --oneline -${n}`,
-        { cwd: this.workspaceRoot }
+        { cwd: this.workspaceRoot, timeout: 5000 }
       );
       return stdout
         .split("\n")
@@ -107,7 +108,7 @@ export class GitService {
     try {
       const { stdout } = await execAsync(
         "git branch --show-current",
-        { cwd: this.workspaceRoot }
+        { cwd: this.workspaceRoot, timeout: 5000 }
       );
       return stdout.trim();
     } catch {

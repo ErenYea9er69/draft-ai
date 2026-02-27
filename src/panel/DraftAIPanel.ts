@@ -117,6 +117,9 @@ export class DraftAIPanel implements vscode.WebviewViewProvider {
         <meta http-equiv="Content-Security-Policy" content="default-src 'none'; style-src ${cspSource} 'unsafe-inline'; script-src 'nonce-${nonce}' ${cspSource}; font-src ${cspSource}; img-src ${cspSource} https:; connect-src https://api.longcat.chat https://api.tavily.com https://api.osv.dev;">`
     );
 
+    // Apply nonce to all script tags so they pass CSP
+    html = html.replace(/<script(?![^>]*nonce)/g, `<script nonce="${nonce}"`);
+
     return html;
   }
 

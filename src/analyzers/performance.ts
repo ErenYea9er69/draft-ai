@@ -1,5 +1,4 @@
 import type { CodeIssue } from "../types";
-import { randomUUID } from "crypto";
 
 /**
  * Performance analyzer — detects common performance anti-patterns.
@@ -120,7 +119,7 @@ export function analyzePerformanceIssues(
 
       if (pattern.pattern.test(line)) {
         issues.push({
-          id: `perf-${pattern.name}-${randomUUID().slice(0, 8)}`,
+          id: `perf-${pattern.name}-${filePath}:${i + 1}`,
           file: filePath,
           line: i + 1,
           category: "performance",
