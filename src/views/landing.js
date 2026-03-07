@@ -4,11 +4,11 @@
  */
 import { loadKeys, saveKeys, getHistory, deleteAnalysis } from '../services/storage.js';
 
-export function renderLanding(app, { onSubmit, onLoadAnalysis }) {
-    const keys = loadKeys();
-    const history = getHistory();
+export function renderLanding(app, { onSubmit, onLoadAnalysis, onSwitchToGuided, prefillIdea }) {
+  const keys = loadKeys();
+  const history = getHistory();
 
-    app.innerHTML = `
+  app.innerHTML = `
     <div class="bg-grid min-h-screen">
       <!-- Nav -->
       <nav class="flex items-center justify-between px-6 md:px-10 py-5 max-w-7xl mx-auto">
@@ -17,6 +17,14 @@ export function renderLanding(app, { onSubmit, onLoadAnalysis }) {
           <span class="font-heading font-bold text-lg tracking-tight text-white">StartupValidator</span>
         </div>
         <div class="flex items-center gap-3">
+          <div class="flex items-center bg-white/5 rounded-lg p-1">
+            <button id="tab-freeform" class="px-4 py-2 rounded-md text-sm font-medium bg-electric-500/20 text-electric-400 border border-electric-500/30">
+              ✍️ Free Text
+            </button>
+            <button id="tab-guided" class="px-4 py-2 rounded-md text-sm font-medium text-white/50 hover:text-white/80 transition-colors">
+              🧭 Guided
+            </button>
+          </div>
           ${history.length > 0 ? `<button id="toggle-history" class="btn-secondary text-xs">📋 History (${history.length})</button>` : ''}
         </div>
       </nav>
@@ -47,7 +55,7 @@ export function renderLanding(app, { onSubmit, onLoadAnalysis }) {
                 class="input-field"
                 placeholder="Describe your startup idea in detail. What problem does it solve? Who is the target user? What's unique about your approach?&#10;&#10;Example: An AI-powered tool that automatically generates personalized onboarding sequences for SaaS products based on user behavior patterns..."
                 rows="6"
-              ></textarea>
+              >${prefillIdea || ''}</textarea>
             </div>
 
             <!-- Settings Toggle -->
@@ -154,107 +162,112 @@ export function renderLanding(app, { onSubmit, onLoadAnalysis }) {
     </div>
   `;
 
-    // --- Event Listeners ---
+  // --- Event Listeners ---
 
-    // Settings toggle
-    const settingsToggle = document.getElementById('settings-toggle');
-    const settingsPanel = document.getElementById('settings-panel');
-    const settingsArrow = document.getElementById('settings-arrow');
-    let settingsOpen = !keys.longcatKey || !keys.tavilyKey; // auto-open if keys missing
+  // Tab navigation
+  document.getElementById('tab-guided')?.addEventListener('click', () => {
+    if (onSwitchToGuided) onSwitchToGuided();
+  });
 
-    if (settingsOpen) {
-        settingsPanel.classList.add('open');
-        settingsArrow.style.transform = 'rotate(90deg)';
+  // Settings toggle
+  const settingsToggle = document.getElementById('settings-toggle');
+  const settingsPanel = document.getElementById('settings-panel');
+  const settingsArrow = document.getElementById('settings-arrow');
+  let settingsOpen = !keys.longcatKey || !keys.tavilyKey; // auto-open if keys missing
+
+  if (settingsOpen) {
+    settingsPanel.classList.add('open');
+    settingsArrow.style.transform = 'rotate(90deg)';
+  }
+
+  settingsToggle.addEventListener('click', () => {
+    settingsOpen = !settingsOpen;
+    settingsPanel.classList.toggle('open', settingsOpen);
+    settingsArrow.style.transform = settingsOpen ? 'rotate(90deg)' : '';
+  });
+
+  // History toggle
+  const historyBtn = document.getElementById('toggle-history');
+  const historySidebar = document.getElementById('history-sidebar');
+  const closeHistory = document.getElementById('close-history');
+
+  if (historyBtn) {
+    historyBtn.addEventListener('click', () => {
+      historySidebar.classList.toggle('hidden');
+    });
+  }
+  if (closeHistory) {
+    closeHistory.addEventListener('click', () => {
+      historySidebar.classList.add('hidden');
+    });
+  }
+
+  // History items
+  document.querySelectorAll('.history-item').forEach(item => {
+    item.addEventListener('click', (e) => {
+      if (e.target.closest('.delete-history')) return;
+      onLoadAnalysis(item.dataset.id);
+    });
+  });
+
+  document.querySelectorAll('.delete-history').forEach(btn => {
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      deleteAnalysis(btn.dataset.id);
+      renderLanding(app, { onSubmit, onLoadAnalysis, onSwitchToGuided, prefillIdea });
+    });
+  });
+
+  // Submit
+  const submitBtn = document.getElementById('submit-btn');
+  const errorMsg = document.getElementById('error-msg');
+
+  submitBtn.addEventListener('click', () => {
+    const idea = document.getElementById('idea-input').value.trim();
+    const longcatKey = document.getElementById('longcat-key').value.trim();
+    const tavilyKey = document.getElementById('tavily-key').value.trim();
+
+    // Validation
+    if (!idea) {
+      showError('Please describe your startup idea.');
+      return;
+    }
+    if (!longcatKey) {
+      showError('Please enter your LongCat API key. Get a free one at longcat.chat');
+      if (!settingsOpen) settingsToggle.click();
+      return;
+    }
+    if (!tavilyKey) {
+      showError('Please enter your Tavily API key. Get a free one at app.tavily.com');
+      if (!settingsOpen) settingsToggle.click();
+      return;
     }
 
-    settingsToggle.addEventListener('click', () => {
-        settingsOpen = !settingsOpen;
-        settingsPanel.classList.toggle('open', settingsOpen);
-        settingsArrow.style.transform = settingsOpen ? 'rotate(90deg)' : '';
-    });
+    // Save keys
+    saveKeys(longcatKey, tavilyKey);
 
-    // History toggle
-    const historyBtn = document.getElementById('toggle-history');
-    const historySidebar = document.getElementById('history-sidebar');
-    const closeHistory = document.getElementById('close-history');
+    // Trigger analysis
+    onSubmit({ idea, longcatKey, tavilyKey });
+  });
 
-    if (historyBtn) {
-        historyBtn.addEventListener('click', () => {
-            historySidebar.classList.toggle('hidden');
-        });
-    }
-    if (closeHistory) {
-        closeHistory.addEventListener('click', () => {
-            historySidebar.classList.add('hidden');
-        });
-    }
-
-    // History items
-    document.querySelectorAll('.history-item').forEach(item => {
-        item.addEventListener('click', (e) => {
-            if (e.target.closest('.delete-history')) return;
-            onLoadAnalysis(item.dataset.id);
-        });
-    });
-
-    document.querySelectorAll('.delete-history').forEach(btn => {
-        btn.addEventListener('click', (e) => {
-            e.stopPropagation();
-            deleteAnalysis(btn.dataset.id);
-            renderLanding(app, { onSubmit, onLoadAnalysis });
-        });
-    });
-
-    // Submit
-    const submitBtn = document.getElementById('submit-btn');
-    const errorMsg = document.getElementById('error-msg');
-
-    submitBtn.addEventListener('click', () => {
-        const idea = document.getElementById('idea-input').value.trim();
-        const longcatKey = document.getElementById('longcat-key').value.trim();
-        const tavilyKey = document.getElementById('tavily-key').value.trim();
-
-        // Validation
-        if (!idea) {
-            showError('Please describe your startup idea.');
-            return;
-        }
-        if (!longcatKey) {
-            showError('Please enter your LongCat API key. Get a free one at longcat.chat');
-            if (!settingsOpen) settingsToggle.click();
-            return;
-        }
-        if (!tavilyKey) {
-            showError('Please enter your Tavily API key. Get a free one at app.tavily.com');
-            if (!settingsOpen) settingsToggle.click();
-            return;
-        }
-
-        // Save keys
-        saveKeys(longcatKey, tavilyKey);
-
-        // Trigger analysis
-        onSubmit({ idea, longcatKey, tavilyKey });
-    });
-
-    function showError(msg) {
-        errorMsg.textContent = msg;
-        errorMsg.classList.remove('hidden');
-        setTimeout(() => errorMsg.classList.add('hidden'), 5000);
-    }
+  function showError(msg) {
+    errorMsg.textContent = msg;
+    errorMsg.classList.remove('hidden');
+    setTimeout(() => errorMsg.classList.add('hidden'), 5000);
+  }
 }
 
 function escapeHtml(str) {
-    const div = document.createElement('div');
-    div.textContent = str;
-    return div.innerHTML;
+  const div = document.createElement('div');
+  div.textContent = str;
+  return div.innerHTML;
 }
 
 function getVerdictColor(verdict) {
-    if (!verdict) return 'text-white/40';
-    const v = verdict.toLowerCase();
-    if (v.includes('exceptional')) return 'text-emerald-400';
-    if (v.includes('promising')) return 'text-electric-400';
-    if (v.includes('risk')) return 'text-amber-400';
-    return 'text-rose-400';
+  if (!verdict) return 'text-white/40';
+  const v = verdict.toLowerCase();
+  if (v.includes('exceptional')) return 'text-emerald-400';
+  if (v.includes('promising')) return 'text-electric-400';
+  if (v.includes('risk')) return 'text-amber-400';
+  return 'text-rose-400';
 }

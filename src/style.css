@@ -38,7 +38,12 @@ body {
   overflow-x: hidden;
 }
 
-h1, h2, h3, h4, h5, h6 {
+h1,
+h2,
+h3,
+h4,
+h5,
+h6 {
   font-family: var(--font-heading);
 }
 
@@ -59,6 +64,7 @@ h1, h2, h3, h4, h5, h6 {
   border-radius: 1rem;
   transition: all 0.3s ease;
 }
+
 .glass:hover {
   background: var(--color-glass-hover);
   border-color: rgba(255, 255, 255, 0.12);
@@ -70,20 +76,25 @@ h1, h2, h3, h4, h5, h6 {
   width: 80px;
   height: 80px;
 }
+
 .score-gauge svg {
   transform: rotate(-90deg);
 }
+
 .score-gauge circle {
   fill: none;
   stroke-width: 6;
   stroke-linecap: round;
 }
+
 .score-gauge .track {
   stroke: rgba(255, 255, 255, 0.06);
 }
+
 .score-gauge .fill {
   transition: stroke-dashoffset 1.5s cubic-bezier(0.4, 0, 0.2, 1);
 }
+
 .score-gauge .value {
   position: absolute;
   inset: 0;
@@ -97,64 +108,136 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ===== Animations ===== */
 @keyframes fadeInUp {
-  from { opacity: 0; transform: translateY(24px); }
-  to { opacity: 1; transform: translateY(0); }
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
 }
+
 @keyframes fadeIn {
-  from { opacity: 0; }
-  to { opacity: 1; }
+  from {
+    opacity: 0;
+  }
+
+  to {
+    opacity: 1;
+  }
 }
+
 @keyframes pulse-glow {
-  0%, 100% { box-shadow: 0 0 20px rgba(79, 70, 229, 0.3); }
-  50% { box-shadow: 0 0 40px rgba(79, 70, 229, 0.6); }
+
+  0%,
+  100% {
+    box-shadow: 0 0 20px rgba(79, 70, 229, 0.3);
+  }
+
+  50% {
+    box-shadow: 0 0 40px rgba(79, 70, 229, 0.6);
+  }
 }
+
 @keyframes shimmer {
-  0% { background-position: -200% 0; }
-  100% { background-position: 200% 0; }
+  0% {
+    background-position: -200% 0;
+  }
+
+  100% {
+    background-position: 200% 0;
+  }
 }
+
 @keyframes countUp {
-  from { opacity: 0; transform: scale(0.5); }
-  to { opacity: 1; transform: scale(1); }
+  from {
+    opacity: 0;
+    transform: scale(0.5);
+  }
+
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
 }
 
 .animate-fade-in-up {
   animation: fadeInUp 0.6s ease forwards;
   opacity: 0;
 }
+
 .animate-fade-in {
   animation: fadeIn 0.5s ease forwards;
   opacity: 0;
 }
+
 .animate-pulse-glow {
   animation: pulse-glow 3s ease-in-out infinite;
 }
 
 /* stagger children */
-.stagger > *:nth-child(1) { animation-delay: 0.05s; }
-.stagger > *:nth-child(2) { animation-delay: 0.1s; }
-.stagger > *:nth-child(3) { animation-delay: 0.15s; }
-.stagger > *:nth-child(4) { animation-delay: 0.2s; }
-.stagger > *:nth-child(5) { animation-delay: 0.25s; }
-.stagger > *:nth-child(6) { animation-delay: 0.3s; }
-.stagger > *:nth-child(7) { animation-delay: 0.35s; }
-.stagger > *:nth-child(8) { animation-delay: 0.4s; }
-.stagger > *:nth-child(9) { animation-delay: 0.45s; }
-.stagger > *:nth-child(10) { animation-delay: 0.5s; }
-.stagger > *:nth-child(11) { animation-delay: 0.55s; }
+.stagger>*:nth-child(1) {
+  animation-delay: 0.05s;
+}
+
+.stagger>*:nth-child(2) {
+  animation-delay: 0.1s;
+}
+
+.stagger>*:nth-child(3) {
+  animation-delay: 0.15s;
+}
+
+.stagger>*:nth-child(4) {
+  animation-delay: 0.2s;
+}
+
+.stagger>*:nth-child(5) {
+  animation-delay: 0.25s;
+}
+
+.stagger>*:nth-child(6) {
+  animation-delay: 0.3s;
+}
+
+.stagger>*:nth-child(7) {
+  animation-delay: 0.35s;
+}
+
+.stagger>*:nth-child(8) {
+  animation-delay: 0.4s;
+}
+
+.stagger>*:nth-child(9) {
+  animation-delay: 0.45s;
+}
+
+.stagger>*:nth-child(10) {
+  animation-delay: 0.5s;
+}
+
+.stagger>*:nth-child(11) {
+  animation-delay: 0.55s;
+}
 
 /* ===== Verdict Banners ===== */
 .verdict-exceptional {
   background: linear-gradient(135deg, rgba(16, 185, 129, 0.2), rgba(79, 70, 229, 0.2));
   border: 1px solid rgba(16, 185, 129, 0.3);
 }
+
 .verdict-promising {
   background: linear-gradient(135deg, rgba(99, 102, 241, 0.2), rgba(59, 130, 246, 0.2));
   border: 1px solid rgba(99, 102, 241, 0.3);
 }
+
 .verdict-risky {
   background: linear-gradient(135deg, rgba(245, 158, 11, 0.2), rgba(239, 68, 68, 0.15));
   border: 1px solid rgba(245, 158, 11, 0.3);
 }
+
 .verdict-notworth {
   background: linear-gradient(135deg, rgba(244, 63, 94, 0.2), rgba(239, 68, 68, 0.15));
   border: 1px solid rgba(244, 63, 94, 0.3);
@@ -162,7 +245,7 @@ h1, h2, h3, h4, h5, h6 {
 
 /* ===== Loading Skeleton ===== */
 .skeleton {
-  background: linear-gradient(90deg, rgba(255,255,255,0.04) 25%, rgba(255,255,255,0.08) 50%, rgba(255,255,255,0.04) 75%);
+  background: linear-gradient(90deg, rgba(255, 255, 255, 0.04) 25%, rgba(255, 255, 255, 0.08) 50%, rgba(255, 255, 255, 0.04) 75%);
   background-size: 200% 100%;
   animation: shimmer 1.5s infinite;
   border-radius: 0.5rem;
@@ -172,13 +255,16 @@ h1, h2, h3, h4, h5, h6 {
 ::-webkit-scrollbar {
   width: 6px;
 }
+
 ::-webkit-scrollbar-track {
   background: transparent;
 }
+
 ::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.1);
   border-radius: 3px;
 }
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(255, 255, 255, 0.2);
 }
@@ -198,13 +284,16 @@ h1, h2, h3, h4, h5, h6 {
   position: relative;
   overflow: hidden;
 }
+
 .btn-primary:hover {
   transform: translateY(-2px);
   box-shadow: 0 8px 30px rgba(79, 70, 229, 0.4);
 }
+
 .btn-primary:active {
   transform: translateY(0);
 }
+
 .btn-primary:disabled {
   opacity: 0.5;
   cursor: not-allowed;
@@ -225,6 +314,7 @@ h1, h2, h3, h4, h5, h6 {
   font-size: 0.875rem;
   font-family: var(--font-body);
 }
+
 .btn-secondary:hover {
   background: var(--color-glass-hover);
   border-color: rgba(255, 255, 255, 0.15);
@@ -243,10 +333,12 @@ h1, h2, h3, h4, h5, h6 {
   width: 100%;
   outline: none;
 }
+
 .input-field:focus {
   border-color: var(--color-electric-500);
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.15);
 }
+
 .input-field::placeholder {
   color: rgba(255, 255, 255, 0.25);
 }
@@ -262,22 +354,27 @@ textarea.input-field {
   padding-left: 1.25rem;
   margin-top: 0.5rem;
 }
+
 .phase-content ul li {
   margin-bottom: 0.35rem;
   color: rgba(255, 255, 255, 0.7);
   font-size: 0.875rem;
   line-height: 1.5;
 }
+
 .phase-content p {
   color: rgba(255, 255, 255, 0.7);
   font-size: 0.875rem;
   line-height: 1.6;
   margin-bottom: 0.5rem;
 }
+
 .phase-content strong {
   color: rgba(255, 255, 255, 0.9);
 }
-.phase-content h4, .phase-content h3 {
+
+.phase-content h4,
+.phase-content h3 {
   font-family: var(--font-heading);
   color: rgba(255, 255, 255, 0.9);
   font-size: 0.9375rem;
@@ -294,6 +391,7 @@ textarea.input-field {
   padding: 1rem;
   transition: all 0.3s ease;
 }
+
 .competitor-card:hover {
   background: rgba(255, 255, 255, 0.06);
   border-color: rgba(255, 255, 255, 0.1);
@@ -309,15 +407,18 @@ textarea.input-field {
   font-size: 0.8125rem;
   transition: color 0.3s ease;
 }
+
 .settings-toggle:hover {
   color: rgba(255, 255, 255, 0.8);
 }
+
 .settings-panel {
   max-height: 0;
   overflow: hidden;
   transition: max-height 0.4s ease, opacity 0.3s ease;
   opacity: 0;
 }
+
 .settings-panel.open {
   max-height: 300px;
   opacity: 1;
@@ -333,8 +434,11 @@ textarea.input-field {
   animation: spin 0.6s linear infinite;
   display: inline-block;
 }
+
 @keyframes spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 /* ===== History Sidebar ===== */
@@ -345,6 +449,7 @@ textarea.input-field {
   transition: all 0.2s ease;
   border: 1px solid transparent;
 }
+
 .history-item:hover {
   background: rgba(255, 255, 255, 0.05);
   border-color: rgba(255, 255, 255, 0.08);
@@ -355,6 +460,7 @@ textarea.input-field {
   text-align: center;
   padding: 4rem 2rem;
 }
+
 .loading-phase .loading-icon {
   width: 80px;
   height: 80px;
@@ -364,6 +470,7 @@ textarea.input-field {
   border-radius: 50%;
   animation: spin 1s linear infinite;
 }
+
 .loading-phase .loading-steps {
   margin-top: 2rem;
   display: flex;
@@ -371,6 +478,7 @@ textarea.input-field {
   align-items: center;
   gap: 0.75rem;
 }
+
 .loading-step {
   display: flex;
   align-items: center;
@@ -379,9 +487,64 @@ textarea.input-field {
   font-size: 0.875rem;
   transition: all 0.5s ease;
 }
+
 .loading-step.active {
   color: var(--color-electric-400);
 }
+
 .loading-step.done {
   color: var(--color-emerald-400);
+}
+
+/* ===== Shake Animation (interview validation) ===== */
+@keyframes shake {
+
+  0%,
+  100% {
+    transform: translateX(0);
+  }
+
+  20% {
+    transform: translateX(-8px);
+  }
+
+  40% {
+    transform: translateX(8px);
+  }
+
+  60% {
+    transform: translateX(-6px);
+  }
+
+  80% {
+    transform: translateX(6px);
+  }
+}
+
+/* ===== Interview Step Dots ===== */
+.interview-dot {
+  cursor: pointer;
+  transition: all 0.3s ease;
+  border: none;
+  font-size: 0.7rem;
+}
+
+.interview-dot:hover {
+  transform: scale(1.15);
+  opacity: 0.9;
+}
+
+/* ===== Line Clamp ===== */
+.line-clamp-2 {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.line-clamp-3 {
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
 }

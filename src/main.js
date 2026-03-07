@@ -1,13 +1,14 @@
 /**
  * StartupValidator — Main Entry Point (10X Enhanced)
- * Orchestrates: Landing → Research → Analysis → Results
+ * Orchestrates: Landing | Interview → Research → Analysis → Results
  */
 import './style.css';
 import { renderLanding } from './views/landing.js';
+import { renderInterview } from './views/interview.js';
 import { renderResults, renderLoading, updateLoadingStep, updateResearchProgress } from './views/results.js';
 import { searchCompetitors, formatResearchForPrompt } from './services/tavily.js';
 import { analyzeIdea } from './services/ai.js';
-import { saveAnalysis, getAnalysis } from './services/storage.js';
+import { saveAnalysis, getAnalysis, loadKeys, saveKeys } from './services/storage.js';
 
 const app = document.getElementById('app');
 
@@ -15,11 +16,21 @@ const app = document.getElementById('app');
 let currentView = 'landing';
 
 // --- Router ---
-function showLanding() {
+function showLanding(prefillIdea) {
     currentView = 'landing';
     renderLanding(app, {
         onSubmit: handleSubmit,
         onLoadAnalysis: handleLoadAnalysis,
+        onSwitchToGuided: showInterview,
+        prefillIdea: prefillIdea || '',
+    });
+}
+
+function showInterview() {
+    currentView = 'interview';
+    renderInterview(app, {
+        onComplete: handleInterviewComplete,
+        onSwitchToFreeform: () => showLanding(),
     });
 }
 
@@ -29,11 +40,40 @@ function showResults(data) {
         result: data.result,
         tavilyData: data.tavilyData,
         idea: data.idea,
-        onBack: showLanding,
+        onBack: () => showLanding(),
     });
 }
 
 // --- Handlers ---
+
+/**
+ * When the guided interview is done, send the compiled prompt
+ * back to the freeform landing page pre-filled, so the user can review & submit.
+ */
+function handleInterviewComplete(compiledPrompt) {
+    // Switch to landing with the compiled prompt pre-filled
+    showLanding(compiledPrompt);
+
+    // Brief delay then scroll to the submit button and flash it
+    setTimeout(() => {
+        const submitBtn = document.getElementById('submit-btn');
+        if (submitBtn) {
+            submitBtn.scrollIntoView({ behavior: 'smooth', block: 'center' });
+            submitBtn.classList.add('animate-pulse-glow');
+        }
+        // Also flash a hint message
+        const ideaInput = document.getElementById('idea-input');
+        if (ideaInput) {
+            ideaInput.style.borderColor = 'rgba(16, 185, 129, 0.5)';
+            ideaInput.style.boxShadow = '0 0 0 3px rgba(16, 185, 129, 0.15)';
+            setTimeout(() => {
+                ideaInput.style.borderColor = '';
+                ideaInput.style.boxShadow = '';
+            }, 3000);
+        }
+    }, 400);
+}
+
 async function handleSubmit({ idea, longcatKey, tavilyKey }) {
     currentView = 'loading';
     renderLoading(app);
@@ -71,7 +111,7 @@ function handleLoadAnalysis(id) {
     if (entry) {
         showResults({
             result: entry.result,
-            tavilyData: entry.tavilyResults, // backwards compat with old saves
+            tavilyData: entry.tavilyResults,
             idea: entry.fullIdea,
         });
     }
@@ -91,7 +131,7 @@ function renderError(message) {
       </div>
     </div>
   `;
-    document.getElementById('error-back').addEventListener('click', showLanding);
+    document.getElementById('error-back').addEventListener('click', () => showLanding());
 }
 
 function escapeHtml(str) {
