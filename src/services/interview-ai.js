@@ -69,7 +69,7 @@ Rate this answer and give feedback. Return ONLY this JSON:
   "suggestion": "<A brief example of how to improve this answer>"
 }`;
 
-    const result = await quickAICall(apiKey, system, prompt, 512);
+    const result = await quickAICall(apiKey, system, prompt, 3072);
     if (!result) return null;
 
     try {
@@ -105,7 +105,7 @@ Return ONLY this JSON:
   ]
 }`;
 
-    const result = await quickAICall(apiKey, system, prompt, 256);
+    const result = await quickAICall(apiKey, system, prompt, 2048);
     if (!result) return null;
 
     try {
@@ -143,7 +143,7 @@ Return ONLY this JSON:
   "example_answer": "<A realistic 2-3 sentence example answer they could adapt>"
 }`;
 
-    const result = await quickAICall(apiKey, system, prompt, 512);
+    const result = await quickAICall(apiKey, system, prompt, 3072);
     if (!result) return null;
 
     try {
@@ -182,7 +182,7 @@ Return ONLY this JSON:
   "ready_enough": <true if readiness >= 60, false otherwise>
 }`;
 
-    const result = await quickAICall(apiKey, system, prompt, 256);
+    const result = await quickAICall(apiKey, system, prompt, 2048);
     if (!result) return null;
 
     try {

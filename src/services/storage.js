@@ -62,12 +62,23 @@ export function saveKeys(longcatKey, tavilyKey) {
 }
 
 /**
- * Load API keys
+ * Load API keys, falling back to environment variables
  */
 export function loadKeys() {
+    let keys = {};
     try {
-        return JSON.parse(localStorage.getItem(KEYS_STORAGE) || '{}');
+        keys = JSON.parse(localStorage.getItem(KEYS_STORAGE) || '{}');
     } catch {
-        return {};
+        keys = {};
     }
+
+    // Fallback to .env variables if not provided
+    if (!keys.longcatKey && import.meta.env.VITE_LONGCAT_API_KEY) {
+        keys.longcatKey = import.meta.env.VITE_LONGCAT_API_KEY;
+    }
+    if (!keys.tavilyKey && import.meta.env.VITE_TAVILY_API_KEY) {
+        keys.tavilyKey = import.meta.env.VITE_TAVILY_API_KEY;
+    }
+
+    return keys;
 }
