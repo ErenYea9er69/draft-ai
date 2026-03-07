@@ -1,10 +1,10 @@
 /**
- * StartupValidator — Main Entry Point
- * Orchestrates the app flow: Landing → Loading → Results
+ * StartupValidator — Main Entry Point (10X Enhanced)
+ * Orchestrates: Landing → Research → Analysis → Results
  */
 import './style.css';
 import { renderLanding } from './views/landing.js';
-import { renderResults, renderLoading, updateLoadingStep } from './views/results.js';
+import { renderResults, renderLoading, updateLoadingStep, updateResearchProgress } from './views/results.js';
 import { searchCompetitors, formatResearchForPrompt } from './services/tavily.js';
 import { analyzeIdea } from './services/ai.js';
 import { saveAnalysis, getAnalysis } from './services/storage.js';
@@ -27,7 +27,7 @@ function showResults(data) {
     currentView = 'results';
     renderResults(app, {
         result: data.result,
-        tavilyResults: data.tavilyResults,
+        tavilyData: data.tavilyData,
         idea: data.idea,
         onBack: showLanding,
     });
@@ -39,24 +39,26 @@ async function handleSubmit({ idea, longcatKey, tavilyKey }) {
     renderLoading(app);
 
     try {
-        // Step 1: Live research with Tavily
+        // Step 1: Live research with Tavily (7 strategies)
         updateLoadingStep('step-research');
-        const tavilyResults = await searchCompetitors(idea, tavilyKey);
-        const researchData = formatResearchForPrompt(tavilyResults);
+        const tavilyData = await searchCompetitors(idea, tavilyKey, (progress) => {
+            updateResearchProgress(progress);
+        });
+        const researchData = formatResearchForPrompt(tavilyData);
 
-        // Step 2: AI Analysis with LongCat
+        // Step 2: Deep AI Analysis with LongCat Thinking
         updateLoadingStep('step-analysis');
         const result = await analyzeIdea(idea, researchData, longcatKey);
 
-        // Step 3: Scoring (already included in result)
+        // Step 3: Scoring complete
         updateLoadingStep('step-scoring');
-        await sleep(800); // brief pause for UX
+        await sleep(600);
 
         // Save to history
-        saveAnalysis(idea, result, tavilyResults);
+        saveAnalysis(idea, result, tavilyData);
 
         // Show results
-        showResults({ result, tavilyResults, idea });
+        showResults({ result, tavilyData, idea });
 
     } catch (error) {
         console.error('Analysis failed:', error);
@@ -69,7 +71,7 @@ function handleLoadAnalysis(id) {
     if (entry) {
         showResults({
             result: entry.result,
-            tavilyResults: entry.tavilyResults,
+            tavilyData: entry.tavilyResults, // backwards compat with old saves
             idea: entry.fullIdea,
         });
     }
@@ -78,11 +80,14 @@ function handleLoadAnalysis(id) {
 function renderError(message) {
     app.innerHTML = `
     <div class="bg-grid min-h-screen flex items-center justify-center">
-      <div class="glass max-w-md w-full mx-6 p-8 text-center animate-fade-in">
+      <div class="glass max-w-lg w-full mx-6 p-8 text-center animate-fade-in">
         <div class="text-5xl mb-4">😵</div>
         <h2 class="font-heading text-xl font-bold text-white mb-3">Analysis Failed</h2>
         <p class="text-white/50 text-sm mb-6 leading-relaxed">${escapeHtml(message)}</p>
-        <button id="error-back" class="btn-primary">← Try Again</button>
+        <div class="flex gap-3 justify-center">
+          <button id="error-back" class="btn-primary">← Try Again</button>
+        </div>
+        <p class="text-white/20 text-xs mt-4">Tip: Check your API keys and try again. LongCat and Tavily both have free tiers.</p>
       </div>
     </div>
   `;
