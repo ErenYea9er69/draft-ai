@@ -319,10 +319,39 @@ export function renderInterview(app, { onComplete, onSwitchToFreeform }) {
             if (currentStep > 0) { currentStep--; render(); }
         });
 
-        // Next
-        document.getElementById('next-btn')?.addEventListener('click', () => {
+        // Next — auto-rate answer before advancing
+        document.getElementById('next-btn')?.addEventListener('click', async () => {
             saveCurrentAnswer();
-            if (step.required && !answers[step.id]?.trim()) { shakeInput(); return; }
+            const answer = answers[step.id]?.trim();
+            if (step.required && !answer) { shakeInput(); return; }
+
+            // If there's an answer and an API key, auto-rate it
+            if (answer && keys.longcatKey && !aiFeedback[step.id]) {
+                // Show loading state on the button
+                const nextBtn = document.getElementById('next-btn');
+                if (nextBtn) {
+                    nextBtn.disabled = true;
+                    nextBtn.innerHTML = '<span class="spinner" style="width:14px;height:14px;border-width:1.5px;"></span> Checking...';
+                }
+
+                const fb = await getAnswerFeedback(keys.longcatKey, step.title, step.question, answer, getContext());
+                if (fb) {
+                    aiFeedback[step.id] = fb;
+
+                    // If quality is bad (1-2), block and show feedback
+                    if (fb.quality <= 2) {
+                        render(); // re-render to show the feedback panel
+                        // After re-render, show a warning toast
+                        setTimeout(() => {
+                            const feedbackEl = document.querySelector('.ai-gate-warning');
+                            if (feedbackEl) feedbackEl.scrollIntoView({ behavior: 'smooth', block: 'center' });
+                        }, 100);
+                        return; // don't advance
+                    }
+                }
+            }
+
+            // Quality is okay (3+) or already rated or no API key — advance
             if (currentStep < INTERVIEW_STEPS.length - 1) { currentStep++; render(); }
             triggerReadinessCheck();
         });
@@ -331,6 +360,13 @@ export function renderInterview(app, { onComplete, onSwitchToFreeform }) {
         document.getElementById('skip-btn')?.addEventListener('click', () => {
             saveCurrentAnswer();
             if (currentStep < INTERVIEW_STEPS.length - 1) { currentStep++; render(); }
+        });
+
+        // Force Next (Continue anyway after bad rating)
+        document.getElementById('force-next-btn')?.addEventListener('click', () => {
+            saveCurrentAnswer();
+            if (currentStep < INTERVIEW_STEPS.length - 1) { currentStep++; render(); }
+            triggerReadinessCheck();
         });
 
         // Validate
@@ -491,6 +527,28 @@ function renderMiniQuality(quality) {
 }
 
 function renderFeedbackPanel(fb) {
+    const isBad = fb.quality <= 2;
+
+    if (isBad) {
+        return `
+    <div class="ai-gate-warning mt-4 p-4 rounded-xl bg-rose-500/[0.07] border border-rose-500/20 animate-fade-in">
+      <div class="flex items-center gap-2 mb-2.5">
+        <span class="text-rose-400 text-sm">⚠️</span>
+        <span class="text-rose-400 text-xs font-semibold uppercase tracking-wide">This answer needs improvement</span>
+      </div>
+      <div class="space-y-2">
+        ${fb.good ? `<div class="flex items-start gap-2"><span class="text-emerald-400 text-xs shrink-0">✅</span><span class="text-white/60 text-xs">${esc(fb.good)}</span></div>` : ''}
+        ${fb.missing ? `<div class="flex items-start gap-2"><span class="text-rose-400 text-xs shrink-0">❌</span><span class="text-white/70 text-xs font-medium">${esc(fb.missing)}</span></div>` : ''}
+        ${fb.suggestion ? `<div class="flex items-start gap-2"><span class="text-electric-400 text-xs shrink-0">💡</span><span class="text-white/50 text-xs italic">Try: ${esc(fb.suggestion)}</span></div>` : ''}
+      </div>
+      <div class="flex items-center gap-3 mt-3 pt-2.5 border-t border-rose-500/10">
+        <span class="text-white/25 text-[10px]">Improve your answer above, then click Next</span>
+        <button id="force-next-btn" class="ml-auto text-white/30 hover:text-white/50 text-[11px] transition-colors">Continue anyway →</button>
+      </div>
+    </div>
+    `;
+    }
+
     return `
     <div class="mt-4 p-4 rounded-xl bg-white/[0.02] border border-white/5 animate-fade-in">
       <div class="space-y-2.5">
